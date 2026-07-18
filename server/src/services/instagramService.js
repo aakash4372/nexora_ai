@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const GRAPH_API_VERSION = 'v19.0';
+const GRAPH_API_VERSION = 'v20.0';
 const BASE_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 /**
@@ -16,7 +16,8 @@ export const instagramService = {
       'instagram_manage_comments',
       'pages_show_list',
       'pages_read_engagement',
-      'pages_manage_metadata'
+      'pages_manage_metadata',
+      'business_management'
     ];
 
     return `https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes.join(',')}&response_type=code&state=${state}`;
@@ -72,6 +73,8 @@ export const instagramService = {
     const pagesRes = await axios.get(`${BASE_URL}/me/accounts`, {
       params: { access_token: userAccessToken },
     });
+
+    console.log("DEBUG: Meta Pages Response:", JSON.stringify(pagesRes.data, null, 2));
 
     const pages = pagesRes.data.data;
     if (!pages || pages.length === 0) {
