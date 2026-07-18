@@ -16,6 +16,7 @@ export const instagramService = {
       'instagram_manage_comments',
       'pages_show_list',
       'pages_read_engagement',
+      'pages_messaging',
       'business_management'
     ];
 
