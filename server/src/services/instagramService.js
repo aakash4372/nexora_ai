@@ -13,17 +13,8 @@ export const instagramService = {
   getAuthUrl(state) {
     const appId = process.env.FACEBOOK_APP_ID;
     const redirectUri = encodeURIComponent(process.env.FACEBOOK_REDIRECT_URI);
-    const scopes = [
-      'instagram_basic',
-      'instagram_manage_messages',
-      'instagram_manage_comments',
-      'pages_show_list',
-      'business_management',
-      'pages_read_engagement',
-      'pages_manage_metadata'
-    ].join(',');
 
-    return `https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes}&state=${state}`;
+    return `https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}`;
   },
 
   /**
