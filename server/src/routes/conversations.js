@@ -140,8 +140,8 @@ router.get('/', requireAuth, async (req, res) => {
         };
       });
 
-      // Merge Instagram conversations with mock conversations
-      let result = [...formattedConvs, ...conversations];
+      // Only return real Instagram conversations
+      let result = [...formattedConvs];
       if (filter === 'unread') result = result.filter((c) => c.unread > 0);
       if (filter === 'assigned') result = result.filter((c) => c.assigned !== 'Unassigned');
       if (filter === 'ai') result = result.filter((c) => c.assigned === 'AI');
