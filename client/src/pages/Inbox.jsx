@@ -17,10 +17,44 @@ const FILTERS = [
 ];
 
 export default function Inbox() {
-  const { state, dispatch, showToast } = useApp();
+  const { state, dispatch, showToast, openModal, closeModal } = useApp();
   const [msgText, setMsgText] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const threadRef = useRef(null);
+
+  function openInstructionModal() {
+    openModal(
+      <div style={{ padding: '8px 4px' }}>
+        <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: '#E1306C' }}>
+          <Icon name="alert" style={{ width: 20, height: 20 }} /> Enable Instagram Message Access
+        </h3>
+        <p style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 16 }}>
+          Meta requires you to manually enable message access in your Instagram mobile app settings to fetch and reply to messages. Please follow these steps on your phone:
+        </p>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.04)',
+          border: '1px solid var(--glass-brd)',
+          borderRadius: 12,
+          padding: '14px 16px',
+          fontSize: 13,
+          lineHeight: 1.6,
+          color: 'var(--text)',
+          marginBottom: 20
+        }}>
+          <ol style={{ paddingLeft: 16, margin: 0 }}>
+            <li>Open the <strong>Instagram app</strong> and switch to your connected business account.</li>
+            <li>Go to your profile, tap the top-right menu (<strong>Settings and Activity</strong>).</li>
+            <li>Scroll down and select <strong>Messages and story replies</strong>.</li>
+            <li>Tap <strong>Message controls</strong>.</li>
+            <li>Under <em>Connected Tools</em>, toggle <strong>Allow Access to Messages</strong> to <strong>ON</strong>.</li>
+          </ol>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={closeModal}>I've Done This</button>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     async function loadConversations() {
@@ -28,6 +62,9 @@ export default function Inbox() {
         const response = await conversationsAPI.list();
         if (response.data?.success) {
           dispatch({ type: 'SET_CONVERSATIONS', payload: response.data.data });
+          if (response.data.needsMessageAccessToggle) {
+            openInstructionModal();
+          }
         }
       } catch (err) {
         console.error('Failed to load conversations:', err);

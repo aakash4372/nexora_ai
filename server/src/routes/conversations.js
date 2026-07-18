@@ -89,6 +89,7 @@ router.get('/', requireAuth, async (req, res) => {
   const { filter, assigned } = req.query;
   const userId = req.userId || req.user?.id;
 
+  let needsMessageAccessToggle = false;
   try {
     // 1. Check if InstagramConnection exists for the user
     console.log("DEBUG conversations: querying for userId:", userId);
@@ -149,6 +150,10 @@ router.get('/', requireAuth, async (req, res) => {
     }
   } catch (error) {
     console.error('⚠️ Error fetching live Instagram conversations:', error.message);
+    const responseData = error.response?.data?.error;
+    if (responseData?.code === 3 || error.response?.status === 400) {
+      needsMessageAccessToggle = true;
+    }
   }
 
   // Fallback to in-memory mock conversations if no connection or error
@@ -157,7 +162,7 @@ router.get('/', requireAuth, async (req, res) => {
   if (filter === 'assigned') result = result.filter((c) => c.assigned !== 'Unassigned');
   if (filter === 'ai') result = result.filter((c) => c.assigned === 'AI');
   if (assigned) result = result.filter((c) => c.assigned === assigned);
-  res.json({ success: true, data: result });
+  res.json({ success: true, data: result, needsMessageAccessToggle });
 });
 
 /** GET /api/conversations/:id */
