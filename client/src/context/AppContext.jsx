@@ -7,6 +7,7 @@ const initialState = {
   screen: 'login', // login | register | forgot | reset
   onboarded: false,
   onboardingStep: 1,
+  activeAccount: null,
 
   // App
   page: 'dashboard',
@@ -103,6 +104,7 @@ function reducer(state, action) {
     case 'SET_ONBOARDED': return { ...state, onboarded: action.payload };
     case 'SET_ONBOARDING_STEP': return { ...state, onboardingStep: action.payload };
     case 'SET_PAGE': return { ...state, page: action.payload };
+    case 'SET_ACTIVE_ACCOUNT': return { ...state, activeAccount: action.payload };
     case 'TOGGLE_SIDEBAR': return { ...state, sidebarCollapsed: !state.sidebarCollapsed };
     case 'SET_INBOX_FILTER': return { ...state, inboxFilter: action.payload };
     case 'SET_SELECTED_CONV': return { ...state, selectedConvId: action.payload };
@@ -195,8 +197,14 @@ export function AppProvider({ children }) {
 
   const login = useCallback((userData) => {
     if (userData?.token) localStorage.setItem('nexora_token', userData.token);
-    if (userData?.user) dispatch({ type: 'SET_USER', payload: userData.user });
+    if (userData?.user) {
+      dispatch({ type: 'SET_USER', payload: userData.user });
+      if (userData.user.workspace) {
+        dispatch({ type: 'SET_WORKSPACE', payload: { name: userData.user.workspace } });
+      }
+    }
     dispatch({ type: 'SET_LOGGED_IN', payload: true });
+    dispatch({ type: 'SET_ONBOARDED', payload: true });
   }, []);
 
   return (

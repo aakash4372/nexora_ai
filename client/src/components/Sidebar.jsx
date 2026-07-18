@@ -14,6 +14,7 @@ const NAV = [
 const BOTTOM_NAV = [
   { id: 'team', icon: 'team', label: 'Team' },
   { id: 'integrations', icon: 'integrations', label: 'Integrations' },
+  { id: 'instagram', icon: 'integrations', label: 'Instagram' },
   { id: 'api', icon: 'api', label: 'API' },
   { id: 'billing', icon: 'billing', label: 'Billing' },
   { id: 'settings', icon: 'settings', label: 'Settings' },

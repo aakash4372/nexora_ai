@@ -2,9 +2,13 @@ import { useApp } from '../context/AppContext';
 import Icon from '../components/Icon';
 
 export default function Integrations() {
-  const { state, dispatch, showToast } = useApp();
+  const { state, dispatch, showToast, goPage } = useApp();
 
   function toggle(id) {
+    if (id === 'instagram') {
+      goPage('instagram');
+      return;
+    }
     const integration = state.integrations.find((i) => i.id === id);
     dispatch({ type: 'TOGGLE_INTEGRATION', id });
     showToast(integration.connected ? `${integration.name} disconnected` : `${integration.name} connected`, 'success');

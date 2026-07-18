@@ -11,13 +11,16 @@ import contactRoutes from './routes/contacts.js';
 import automationRoutes from './routes/automations.js';
 import campaignRoutes from './routes/campaigns.js';
 import analyticsRoutes from './routes/analytics.js';
+import instagramRoutes from './routes/instagram.js';
+import webhookRoutes from './routes/webhooks.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-/* ─── Security ─────────────────────────────────────────── */
-app.use(helmet());
+app.use(helmet({
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
+}));
 
 /* ─── CORS ──────────────────────────────────────────────── */
 const allowedOrigins = [
@@ -65,6 +68,8 @@ app.use('/api/contacts', contactRoutes);
 app.use('/api/automations', automationRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/instagram', instagramRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 /* ─── Error handling ────────────────────────────────────── */
 app.use(notFound);

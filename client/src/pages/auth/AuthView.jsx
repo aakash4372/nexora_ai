@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import Icon from '../../components/Icon';
-import { authAPI } from '../../lib/api';
+import api, { authAPI } from '../../lib/api';
+import { useGoogleLogin } from '@react-oauth/google';
 
 /* ── Logo ─────────────────────────────────────────────────── */
 function LogoMark() {
@@ -37,11 +38,18 @@ export default function AuthView() {
   const [showPass, setShowPass] = useState(false);
   const [serverStatus, setServerStatus] = useState('unknown'); // 'online' | 'offline' | 'unknown'
 
+  // Check server status on component mount
+  useEffect(() => {
+    api.get('/health')
+      .then(() => setServerStatus('online'))
+      .catch(() => setServerStatus('offline'));
+  }, []);
+
   // Shared form state
   const [form, setForm] = useState({
     name: '',
-    email: 'aarav@nexoralabs.io',
-    password: 'password123',
+    email: '',
+    password: '',
     confirm: '',
   });
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -74,14 +82,9 @@ export default function AuthView() {
       showToast(`Welcome back, ${res.data.user.name}! 👋`, 'success');
     } catch (err) {
       if (isNetworkError(err)) {
-        // Server offline — use demo mode
         setServerStatus('offline');
-        showToast('Server offline — using demo mode', 'default');
-        login({
-          user: { name: 'Aarav Sharma', email: form.email.trim(), initials: 'AS' },
-        });
+        showToast('Server connection failed. Please ensure the server is running.', 'error');
       } else {
-        // Server responded with an error (wrong password, not found, etc.)
         setServerStatus('online');
         const msg = err.response?.data?.message || 'Login failed. Please try again.';
         showToast(msg, 'error');
@@ -92,24 +95,28 @@ export default function AuthView() {
   }
 
   /* ── Google Login ─────────────────────────────────────────── */
-  async function doGoogleLogin() {
-    setLoading(true);
-    try {
-      const res = await authAPI.googleLogin();
-      handleAuthSuccess(res.data);
-      showToast('Signed in with Google ✓', 'success');
-    } catch (err) {
-      if (isNetworkError(err)) {
-        setServerStatus('offline');
-        showToast('Server offline — demo Google sign-in', 'default');
-        login({ user: { name: 'Aarav Sharma', email: 'aarav@nexoralabs.io', initials: 'AS' } });
-      } else {
-        showToast(err.response?.data?.message || 'Google login failed', 'error');
+  const doGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setLoading(true);
+      try {
+        const res = await authAPI.googleLogin({ token: tokenResponse.access_token });
+        handleAuthSuccess(res.data);
+        showToast('Signed in with Google ✓', 'success');
+      } catch (err) {
+        if (isNetworkError(err)) {
+          setServerStatus('offline');
+          showToast('Server connection failed. Please ensure the server is running.', 'error');
+        } else {
+          showToast(err.response?.data?.message || 'Google login failed', 'error');
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
+    },
+    onError: () => {
+      showToast('Google login failed', 'error');
     }
-  }
+  });
 
   /* ── Register ────────────────────────────────────────────── */
   async function doRegister() {
@@ -129,9 +136,7 @@ export default function AuthView() {
     } catch (err) {
       if (isNetworkError(err)) {
         setServerStatus('offline');
-        showToast('Server offline — demo account created', 'default');
-        const initials = form.name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        login({ user: { name: form.name.trim(), email: form.email.trim(), initials } });
+        showToast('Server connection failed. Please ensure the server is running.', 'error');
       } else {
         showToast(err.response?.data?.message || 'Registration failed', 'error');
       }
@@ -150,8 +155,7 @@ export default function AuthView() {
       setTimeout(() => dispatch({ type: 'SET_SCREEN', payload: 'reset' }), 1000);
     } catch (err) {
       if (isNetworkError(err)) {
-        showToast(`Reset link sent to ${form.email} (demo)`, 'success');
-        setTimeout(() => dispatch({ type: 'SET_SCREEN', payload: 'reset' }), 1000);
+        showToast('Server connection failed. Please ensure the server is running.', 'error');
       } else {
         showToast(err.response?.data?.message || 'Could not send reset link', 'error');
       }
@@ -171,8 +175,7 @@ export default function AuthView() {
       dispatch({ type: 'SET_SCREEN', payload: 'login' });
     } catch (err) {
       if (isNetworkError(err)) {
-        showToast('Password updated (demo) — please log in', 'success');
-        dispatch({ type: 'SET_SCREEN', payload: 'login' });
+        showToast('Server connection failed. Please ensure the server is running.', 'error');
       } else {
         showToast(err.response?.data?.message || 'Reset failed', 'error');
       }
@@ -219,7 +222,7 @@ export default function AuthView() {
           background: serverStatus === 'online' ? 'var(--success)' : 'var(--warn)',
           display: 'inline-block',
         }} />
-        {serverStatus === 'online' ? 'Server connected' : 'Server offline — demo mode'}
+        {serverStatus === 'online' ? 'Server connected' : 'Server offline'}
       </div>
     );
   };
@@ -283,11 +286,6 @@ export default function AuthView() {
               <a href="#" onClick={(e) => { e.preventDefault(); dispatch({ type: 'SET_SCREEN', payload: 'register' }); }} style={{ color: '#9BB1FF', fontWeight: 600 }}>
                 Sign up free
               </a>
-            </div>
-
-            {/* Demo hint */}
-            <div style={{ marginTop: 16, padding: '8px 12px', borderRadius: 8, background: 'rgba(91,124,250,0.08)', border: '1px solid rgba(91,124,250,0.2)', fontSize: 11.5, color: 'var(--muted)', textAlign: 'center' }}>
-              Demo: <strong style={{ color: '#9BB1FF' }}>aarav@nexoralabs.io</strong> · <strong style={{ color: '#9BB1FF' }}>password123</strong>
             </div>
           </>
         )}

@@ -120,10 +120,9 @@ export default function Topbar() {
           </div>
         }
       >
-        <DdItem icon="building" label="Nexora Demo Co" onClick={() => showToast('Switched workspace')} />
-        <DdItem icon="building" label="Nexora Agency" onClick={() => showToast('Switched workspace')} />
+        <DdItem icon="building" label="Switch Account" onClick={() => dispatch({ type: 'SET_ACTIVE_ACCOUNT', payload: null })} />
         <DdSep />
-        <DdItem icon="plus" label="Create workspace" onClick={() => showToast('Opening workspace creator…')} />
+        <DdItem icon="plus" label="Create workspace" onClick={() => dispatch({ type: 'SET_ACTIVE_ACCOUNT', payload: null })} />
       </Dropdown>
 
       {/* Search bar */}
