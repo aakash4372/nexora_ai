@@ -7,14 +7,19 @@ const BASE_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
  * Service to handle Meta/Facebook Graph API calls for Instagram Business.
  */
 export const instagramService = {
-  /**
-   * Generates the Meta OAuth URL.
-   */
   getAuthUrl(state) {
     const appId = process.env.FACEBOOK_APP_ID;
     const redirectUri = encodeURIComponent(process.env.FACEBOOK_REDIRECT_URI);
+    const scopes = [
+      'instagram_business_basic',
+      'instagram_business_manage_messages',
+      'instagram_business_manage_comments',
+      'pages_show_list',
+      'pages_read_engagement',
+      'pages_manage_metadata'
+    ];
 
-    return `https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}`;
+    return `https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes.join(',')}&response_type=code&state=${state}`;
   },
 
   /**
