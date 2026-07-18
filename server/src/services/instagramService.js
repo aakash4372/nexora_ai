@@ -136,7 +136,7 @@ export const instagramService = {
     const response = await axios.post(
       url,
       {
-        subscribed_fields: ['messages', 'comments', 'mentions', 'message_reactions', 'story_mentions'],
+        subscribed_fields: ['messages', 'message_reactions'],
       },
       {
         headers: {

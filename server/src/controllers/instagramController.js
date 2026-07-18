@@ -60,7 +60,7 @@ export const instagramController = {
       try {
         webhookSubscribed = await instagramService.subscribeWebhook(assets.facebookPageId, assets.facebookPageAccessToken);
       } catch (err) {
-        console.error('❌ Webhook subscription failed:', err.message);
+        console.error('❌ Webhook subscription failed:', err.response?.data || err.message);
       }
 
       // Calculate expiration date
