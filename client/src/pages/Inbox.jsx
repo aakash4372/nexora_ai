@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import Icon from '../components/Icon';
+import { conversationsAPI } from '../lib/api';
 
 const CHAN_COLOR = { instagram: '#E1306C', whatsapp: '#25D366', facebook: '#1877F2' };
 const CHAN_BADGE = { instagram: 'badge-purple', whatsapp: 'badge-green', facebook: 'badge-blue' };
@@ -21,6 +22,21 @@ export default function Inbox() {
   const [aiLoading, setAiLoading] = useState(false);
   const threadRef = useRef(null);
 
+  useEffect(() => {
+    async function loadConversations() {
+      try {
+        const response = await conversationsAPI.list();
+        if (response.data?.success) {
+          dispatch({ type: 'SET_CONVERSATIONS', payload: response.data.data });
+        }
+      } catch (err) {
+        console.error('Failed to load conversations:', err);
+        showToast('Failed to load conversations', 'error');
+      }
+    }
+    loadConversations();
+  }, [dispatch, showToast]);
+
   const convs = state.conversations.filter((c) => {
     if (state.inboxFilter === 'unread') return c.unread > 0;
     if (state.inboxFilter === 'assigned') return c.assigned !== 'Unassigned';
@@ -34,13 +50,23 @@ export default function Inbox() {
   function selectConv(id) {
     dispatch({ type: 'SET_SELECTED_CONV', payload: id });
     dispatch({ type: 'MARK_READ', convId: id });
+    conversationsAPI.update(id, { unread: 0 }).catch((err) => console.error(err));
   }
 
-  function sendMessage() {
+  async function sendMessage() {
     if (!msgText.trim()) return;
-    dispatch({ type: 'SEND_MESSAGE', convId: state.selectedConvId, text: msgText.trim() });
+    const textToSend = msgText.trim();
     setMsgText('');
-    showToast('Message sent', 'success');
+    try {
+      const response = await conversationsAPI.sendMessage(state.selectedConvId, { text: textToSend });
+      if (response.data?.success) {
+        dispatch({ type: 'ADD_MESSAGE', convId: state.selectedConvId, payload: response.data.data });
+        showToast('Message sent', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to send message', 'error');
+    }
   }
 
   function handleAiSuggest() {

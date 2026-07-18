@@ -1,4 +1,7 @@
 import express from 'express';
+import axios from 'axios';
+import InstagramConnection from '../models/InstagramConnection.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -82,8 +85,73 @@ let conversations = [
 ];
 
 /** GET /api/conversations */
-router.get('/', (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   const { filter, assigned } = req.query;
+  const userId = req.userId || req.user?.id;
+
+  try {
+    // 1. Check if InstagramConnection exists for the user
+    console.log("DEBUG conversations: querying for userId:", userId);
+    const allConns = await InstagramConnection.find({});
+    console.log("DEBUG conversations: all connections in DB:", allConns);
+    const connection = await InstagramConnection.findOne({ userId, connected: true });
+    console.log("DEBUG conversations: connection found:", connection);
+    
+    if (connection) {
+      const { instagramBusinessId, accessToken } = connection;
+      const url = `https://graph.facebook.com/v20.0/${instagramBusinessId}/conversations`;
+
+      // Fetch conversations from Meta Graph API
+      const graphRes = await axios.get(url, {
+        params: {
+          platform: 'instagram',
+          fields: 'id,participants,updated_time,unread_count,messages{id,message,from,created_time}',
+          access_token: accessToken,
+        },
+      });
+
+      const metaConvs = graphRes.data.data || [];
+      
+      // Map meta conversations to Nexora format
+      const formattedConvs = metaConvs.map((c) => {
+        // Find customer participant (not the business itself)
+        const customer = c.participants?.data?.find(p => p.id !== instagramBusinessId) || { name: 'Instagram User', id: 'unknown' };
+        
+        // Map messages
+        const msgs = (c.messages?.data || []).map((m) => ({
+          id: m.id,
+          from: m.from?.id === instagramBusinessId ? 'out' : 'them',
+          text: m.message,
+          ts: new Date(m.created_time).getTime(),
+        })).reverse(); // Reverse to place oldest first for chat flow
+
+        return {
+          id: c.id,
+          name: customer.username || customer.name || 'Instagram User',
+          channel: 'instagram',
+          last: msgs[msgs.length - 1]?.text || 'No messages',
+          time: new Date(c.updated_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          unread: c.unread_count || 0,
+          assigned: 'AI',
+          tags: ['Instagram'],
+          typing: false,
+          msgs,
+        };
+      });
+
+      // Merge Instagram conversations with mock conversations
+      let result = [...formattedConvs, ...conversations];
+      if (filter === 'unread') result = result.filter((c) => c.unread > 0);
+      if (filter === 'assigned') result = result.filter((c) => c.assigned !== 'Unassigned');
+      if (filter === 'ai') result = result.filter((c) => c.assigned === 'AI');
+      if (assigned) result = result.filter((c) => c.assigned === assigned);
+      return res.json({ success: true, data: result });
+    }
+  } catch (error) {
+    console.error('⚠️ Error fetching live Instagram conversations:', error.message);
+  }
+
+  // Fallback to in-memory mock conversations if no connection or error
   let result = [...conversations];
   if (filter === 'unread') result = result.filter((c) => c.unread > 0);
   if (filter === 'assigned') result = result.filter((c) => c.assigned !== 'Unassigned');
@@ -93,35 +161,89 @@ router.get('/', (req, res) => {
 });
 
 /** GET /api/conversations/:id */
-router.get('/:id', (req, res) => {
+router.get('/:id', requireAuth, (req, res) => {
   const conv = conversations.find((c) => c.id === Number(req.params.id));
   if (!conv) return res.status(404).json({ success: false, message: 'Conversation not found.' });
   res.json({ success: true, data: conv });
 });
 
 /** POST /api/conversations/:id/messages — Send a message */
-router.post('/:id/messages', (req, res) => {
-  const conv = conversations.find((c) => c.id === Number(req.params.id));
-  if (!conv) return res.status(404).json({ success: false, message: 'Conversation not found.' });
-
+router.post('/:id/messages', requireAuth, async (req, res) => {
+  const { id } = req.params;
   const { text, from = 'out' } = req.body;
+  const userId = req.userId || req.user?.id;
+
   if (!text?.trim()) return res.status(400).json({ success: false, message: 'Message text is required.' });
 
-  const newMsg = {
-    id: conv.msgs.length + 1,
-    from,
-    text: text.trim(),
-    ts: Date.now(),
-  };
-  conv.msgs.push(newMsg);
-  conv.last = text.trim().slice(0, 60);
-  conv.time = 'just now';
+  // 1. If it's a numeric mock ID, handle via mock array
+  if (!isNaN(id)) {
+    const conv = conversations.find((c) => c.id === Number(id));
+    if (!conv) return res.status(404).json({ success: false, message: 'Conversation not found.' });
 
-  res.status(201).json({ success: true, data: newMsg });
+    const newMsg = {
+      id: conv.msgs.length + 1,
+      from,
+      text: text.trim(),
+      ts: Date.now(),
+    };
+    conv.msgs.push(newMsg);
+    conv.last = text.trim().slice(0, 60);
+    conv.time = 'just now';
+    return res.status(201).json({ success: true, data: newMsg });
+  }
+
+  // 2. Otherwise it's a Meta/Instagram conversation ID
+  try {
+    const connection = await InstagramConnection.findOne({ userId, connected: true });
+    if (!connection) {
+      return res.status(400).json({ success: false, message: 'No connected Instagram account found to send messages.' });
+    }
+
+    const { accessToken, instagramBusinessId } = connection;
+
+    // Fetch conversation detail to get customer user IGSID
+    const detailUrl = `https://graph.facebook.com/v20.0/${id}`;
+    const detailRes = await axios.get(detailUrl, {
+      params: {
+        fields: 'participants',
+        access_token: accessToken,
+      },
+    });
+
+    const customer = detailRes.data.participants?.data?.find(p => p.id !== instagramBusinessId);
+    if (!customer) {
+      return res.status(400).json({ success: false, message: 'Could not find message recipient.' });
+    }
+
+    // Send DM using Meta Send API
+    const sendUrl = `https://graph.facebook.com/v20.0/me/messages`;
+    const sendRes = await axios.post(
+      sendUrl,
+      {
+        recipient: { id: customer.id },
+        message: { text: text.trim() },
+      },
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    const newMsg = {
+      id: sendRes.data.message_id || `msg_${Date.now()}`,
+      from: 'out',
+      text: text.trim(),
+      ts: Date.now(),
+    };
+
+    return res.status(201).json({ success: true, data: newMsg });
+  } catch (error) {
+    console.error('❌ Error sending message to Instagram Graph API:', error.response?.data || error.message);
+    return res.status(500).json({ success: false, message: 'Failed to send message via Instagram.' });
+  }
 });
 
 /** PATCH /api/conversations/:id — Update (assign, mark read, add tag) */
-router.patch('/:id', (req, res) => {
+router.patch('/:id', requireAuth, (req, res) => {
   const idx = conversations.findIndex((c) => c.id === Number(req.params.id));
   if (idx === -1) return res.status(404).json({ success: false, message: 'Conversation not found.' });
   conversations[idx] = { ...conversations[idx], ...req.body };

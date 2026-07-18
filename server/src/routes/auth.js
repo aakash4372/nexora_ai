@@ -28,7 +28,9 @@ router.post('/login', async (req, res) => {
     }
 
     // Generate JWT simulation (or real JWT)
-    const token = Buffer.from(JSON.stringify({ id: user._id, email: user.email })).toString('base64');
+    const expiryDays = parseInt(process.env.SESSION_EXPIRY_DAYS || '30', 10);
+    const exp = Date.now() + expiryDays * 24 * 60 * 60 * 1000;
+    const token = Buffer.from(JSON.stringify({ id: user._id, email: user.email, exp })).toString('base64');
     const initials = user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 
     res.json({
@@ -68,7 +70,11 @@ router.post('/register', async (req, res) => {
     const user = new User({ name, email, password });
     await user.save();
 
-    const token = Buffer.from(JSON.stringify({ id: user._id, email: user.email })).toString('base64');
+    const token = Buffer.from(JSON.stringify({
+      id: user._id,
+      email: user.email,
+      exp: Date.now() + parseInt(process.env.SESSION_EXPIRY_DAYS || '30', 10) * 24 * 60 * 60 * 1000
+    })).toString('base64');
     const initials = name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 
     res.status(201).json({

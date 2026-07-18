@@ -11,8 +11,14 @@ export async function requireAuth(req, res, next) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
+    
+    if (decoded.exp && Date.now() > decoded.exp) {
+      return res.status(401).json({ success: false, message: 'Unauthorized. Session expired.' });
+    }
+
     req.userId = decoded.id;
     req.userEmail = decoded.email;
+    req.user = { id: decoded.id, email: decoded.email };
     next();
   } catch (error) {
     return res.status(401).json({ success: false, message: 'Unauthorized. Invalid session token.' });

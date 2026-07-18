@@ -108,6 +108,21 @@ function reducer(state, action) {
     case 'TOGGLE_SIDEBAR': return { ...state, sidebarCollapsed: !state.sidebarCollapsed };
     case 'SET_INBOX_FILTER': return { ...state, inboxFilter: action.payload };
     case 'SET_SELECTED_CONV': return { ...state, selectedConvId: action.payload };
+    case 'SET_CONVERSATIONS': return { ...state, conversations: action.payload };
+
+    case 'ADD_MESSAGE': {
+      const convs = state.conversations.map((c) => {
+        if (c.id !== action.convId) return c;
+        const newMsg = action.payload; // Already formatted msg from server
+        return {
+          ...c,
+          msgs: [...c.msgs, newMsg],
+          last: newMsg.text.slice(0, 60),
+          time: 'just now',
+        };
+      });
+      return { ...state, conversations: convs };
+    }
 
     case 'SEND_MESSAGE': {
       const convs = state.conversations.map((c) => {
