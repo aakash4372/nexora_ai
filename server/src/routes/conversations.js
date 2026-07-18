@@ -99,8 +99,8 @@ router.get('/', requireAuth, async (req, res) => {
     console.log("DEBUG conversations: connection found:", connection);
     
     if (connection) {
-      const { instagramBusinessId, accessToken } = connection;
-      const url = `https://graph.facebook.com/v20.0/${instagramBusinessId}/conversations`;
+      const { facebookPageId, instagramBusinessId, accessToken } = connection;
+      const url = `https://graph.facebook.com/v20.0/${facebookPageId}/conversations`;
 
       // Fetch conversations from Meta Graph API
       const graphRes = await axios.get(url, {
