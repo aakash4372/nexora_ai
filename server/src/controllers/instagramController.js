@@ -88,11 +88,11 @@ export const instagramController = {
         { upsert: true, new: true }
       );
 
-      // Redirect client to integrations page
-      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/integrations?status=success`);
+      // Redirect client to landing selector page
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/?status=success`);
     } catch (err) {
       console.error('❌ Callback verification failed:', err);
-      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/integrations?error=${encodeURIComponent(err.message || 'OAuth Exchange Failed')}`);
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/?error=${encodeURIComponent(err.message || 'OAuth Exchange Failed')}`);
     }
   },
 

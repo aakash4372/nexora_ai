@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import Icon from '../../components/Icon';
+import { instagramAPI } from '../../lib/api';
 
 export default function AccountsSelector() {
   const { state, dispatch, showToast } = useApp();
@@ -11,27 +12,65 @@ export default function AccountsSelector() {
   // Default accounts state
   const [accounts, setAccounts] = useState([]);
 
+  const workspaceName = state.workspace?.name || 'Default Workspace';
+
+  const fetchStatus = async () => {
+    try {
+      const res = await instagramAPI.getStatus(workspaceName);
+      if (res.data.success && res.data.connected) {
+        const conn = res.data.connection;
+        setAccounts([
+          {
+            id: conn.id,
+            name: `@${conn.instagramUsername}`,
+            plan: 'PRO',
+            role: 'Admin',
+            chats: 0,
+            contacts: 780,
+            pinned: conn.webhookSubscribed,
+            logo: 'instagram',
+            raw: conn
+          }
+        ]);
+      } else {
+        setAccounts([]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+
+    // Check query params for redirect notifications
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('status') === 'success') {
+      showToast('Instagram Business Account connected successfully! 🎉', 'success');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      fetchStatus();
+    } else if (params.get('error')) {
+      showToast(`Connection failed: ${decodeURIComponent(params.get('error'))}`, 'error');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [workspaceName]);
+
   const filteredAccounts = accounts.filter(acc =>
     acc.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const connectInstagram = () => {
-    const name = prompt('Enter your Instagram Account Name to connect:', 'My Instagram Brand');
-    if (!name || !name.trim()) return;
-
-    const newAcc = {
-      id: Date.now(),
-      name: name.trim(),
-      plan: 'FREE',
-      role: 'Admin',
-      chats: 0,
-      contacts: 0,
-      pinned: false,
-      logo: 'instagram'
-    };
-    setAccounts([...accounts, newAcc]);
-    setView('list');
-    showToast('Instagram account connected! 🎉', 'success');
+  const connectInstagram = async () => {
+    try {
+      const res = await instagramAPI.connect(workspaceName);
+      if (res.data.success && res.data.url) {
+        window.location.href = res.data.url;
+      } else {
+        showToast('Could not retrieve login URL.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to start connection flow.', 'error');
+    }
   };
 
   const handleSelectAccount = (acc) => {
