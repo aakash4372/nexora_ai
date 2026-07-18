@@ -75,7 +75,7 @@ export const instagramService = {
 
     const pages = pagesRes.data.data;
     if (!pages || pages.length === 0) {
-      throw new Error('No Facebook Pages found linked to this Facebook Account.');
+      throw new Error('No Facebook Pages found. Please ensure: 1) You have created a Facebook Page on this account, and 2) You checked/granted permission for your Pages in the Facebook login prompt (use "Edit Settings" in the popup to verify).');
     }
 
     // 3. Find the Facebook Page with an Instagram Business account connected
@@ -102,7 +102,7 @@ export const instagramService = {
     }
 
     if (!connectedPage || !instagramBusinessId) {
-      throw new Error('No Instagram Business Account linked to your Facebook Pages. Please link your Instagram Business account to a Facebook page first.');
+      throw new Error('No Instagram Business Account linked to your Facebook Pages. Please ensure: 1) Your Instagram account is a Business or Creator account, and 2) It is linked/connected to your Facebook Page in the Page settings.');
     }
 
     // 4. Fetch Instagram profile details
