@@ -94,7 +94,7 @@ router.get('/', requireAuth, async (req, res) => {
     console.log("DEBUG conversations: querying for userId:", userId);
     const allConns = await InstagramConnection.find({});
     console.log("DEBUG conversations: all connections in DB:", allConns);
-    const connection = await InstagramConnection.findOne({ userId, connected: true });
+    const connection = await InstagramConnection.findOne({ userId, connected: true }).sort({ updatedAt: -1 });
     console.log("DEBUG conversations: connection found:", connection);
     
     if (connection) {
@@ -194,7 +194,7 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
 
   // 2. Otherwise it's a Meta/Instagram conversation ID
   try {
-    const connection = await InstagramConnection.findOne({ userId, connected: true });
+    const connection = await InstagramConnection.findOne({ userId, connected: true }).sort({ updatedAt: -1 });
     if (!connection) {
       return res.status(400).json({ success: false, message: 'No connected Instagram account found to send messages.' });
     }

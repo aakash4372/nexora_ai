@@ -2,7 +2,7 @@ import axios from 'axios';
 
 async function testGraphAPI() {
   const instagramBusinessId = "17841439677670228";
-  const accessToken = "EAAWMd0aA2YYBR1IJ3ZAqZCYxbMJ8wqPoub42RjvY5YZCbkOZBeqwgG2qAZAXZCXGkwmEuvzC2ZB9Kx9DtBIOudtHvPDHnuW5B8urBR6BHrhwJKUHJNh72vktTO5asYJbhOWpnmYmvIgdtZAaOE0mUNcgoxZAGZBmkthsRrZChLQHJc4xCZA4oI48Lxsr0r910H3bFgntimnKPc6KFSkAw2eM1dDS";
+  const accessToken = "EAAWMd0aA2YYBRyjY3DBZCHDtdqQdKIj7x4VZAHEPfPsmnQyflrEiX4RXOAWyoQO7zxRBxgdV8DQoc9wvSpa2MXpr6gtldxeaALkkutwzHHpcYaZAhzYpzsG8507YbXnAdkRzyAMuefqyiZC3CYan5cftpYz4ZCJagPJW7v3h0zELwFDtMLHm7KXYvJzYw0dH6gGSX0phgWjgFjUsxym0p";
   
   const url = `https://graph.facebook.com/v20.0/${instagramBusinessId}/conversations`;
 
@@ -16,7 +16,7 @@ async function testGraphAPI() {
     });
     console.log("SUCCESS:", JSON.stringify(res.data, null, 2));
   } catch (err) {
-    console.error("GRAPH API ERROR:", err.response?.data || err.message);
+    console.error("GRAPH API ERROR FOR NEW TOKEN:", err.response?.data || err.message);
   }
 }
 
