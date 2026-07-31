@@ -33,7 +33,6 @@ export const instagramController = {
 
     const { code, state, error, error_reason, error_description } = req.query;
 
-    // Handle user cancellation or API permission failures from Instagram
     if (error || error_reason) {
       console.error("❌ Instagram OAuth authorization failed/cancelled:", error, error_description || error_reason);
       const userMessage = error_description || error_reason || 'Instagram authorization was cancelled or denied.';
@@ -48,7 +47,6 @@ export const instagramController = {
     console.log("Instagram authorization code received");
 
     try {
-      // 1. Decode & verify state
       let stateObj;
       try {
         stateObj = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
@@ -61,17 +59,13 @@ export const instagramController = {
         throw new Error('Invalid redirect state parameter structure.');
       }
 
-      // 2. Exchange code for access token
       const tokenData = await instagramService.exchangeCodeForToken(code);
       const { accessToken, expiresIn } = tokenData;
 
-      // 3. Retrieve authenticated Instagram professional account info
       const accountInfo = await instagramService.fetchInstagramAccount(accessToken);
 
-      // 4. Calculate token expiration date
       const tokenExpiry = expiresIn ? new Date(Date.now() + expiresIn * 1000) : new Date(Date.now() + 60 * 86400 * 1000);
 
-      // 5. Save/Upsert Instagram connection in MongoDB
       const connectionData = {
         workspaceId,
         userId,
@@ -99,7 +93,6 @@ export const instagramController = {
     } catch (err) {
       console.error("❌ Instagram connection error:", err.message);
 
-      // Categorize common Instagram OAuth error messages
       let userFriendlyError = err.message || 'Instagram connection failed.';
       if (userFriendlyError.includes('invalid_grant') || userFriendlyError.includes('authorization code')) {
         userFriendlyError = 'Invalid or expired authorization code. Please try connecting again.';
@@ -130,7 +123,6 @@ export const instagramController = {
         return res.json({ success: true, connected: false });
       }
 
-      // Check if token is expired
       const isExpired = conn.tokenExpiry && new Date(conn.tokenExpiry) < new Date();
 
       res.json({
@@ -167,6 +159,27 @@ export const instagramController = {
       res.json({ success: true, message: 'Instagram account disconnected successfully.' });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Failed to disconnect.', error: error.message });
+    }
+  },
+
+  /**
+   * GET /api/instagram/profile
+   */
+  async getProfile(req, res) {
+    try {
+      const conn = await InstagramConnection.findOne({ userId: req.userId });
+      if (!conn) return res.status(404).json({ success: false, message: 'No connected Instagram account found.' });
+      res.json({
+        success: true,
+        profile: {
+          instagramUserId: conn.instagramUserId,
+          username: conn.username,
+          accountType: conn.accountType,
+          profilePicture: conn.profilePicture
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
   },
 
