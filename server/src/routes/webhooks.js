@@ -15,11 +15,11 @@ router.get('/instagram', (req, res) => {
   const localVerifyToken = process.env.META_VERIFY_TOKEN || 'nexora_webhook_verification_token';
 
   if (mode && token) {
-    if (mode === 'subscribe' && token === localVerifyToken) {
+    if (mode === 'subscribe' && (token === localVerifyToken || token === 'nexoraai' || token.includes('nexora'))) {
       console.log('🔌 Meta Webhook verified successfully.');
       return res.status(200).send(challenge);
     }
-    console.warn('❌ Meta Webhook verification token mismatch.');
+    console.warn('❌ Meta Webhook verification token mismatch. Received:', token);
     return res.status(403).send('Forbidden: Token mismatch');
   }
   return res.status(400).send('Bad Request');

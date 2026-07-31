@@ -11,9 +11,8 @@ const analyticsData = {
     csat: { value: '94%', delta: '+2%', up: true },
   },
   channelBreakdown: [
-    { channel: 'Instagram', messages: 5210, pct: 41 },
+    { channel: 'Instagram', messages: 7530, pct: 58 },
     { channel: 'WhatsApp', messages: 4180, pct: 33 },
-    { channel: 'Facebook', messages: 2320, pct: 18 },
     { channel: 'Other', messages: 1137, pct: 9 },
   ],
   weeklyMessages: [

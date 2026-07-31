@@ -24,6 +24,7 @@ import Integrations from './pages/Integrations';
 import InstagramIntegration from './pages/InstagramIntegration';
 import APIPage from './pages/APIPage';
 import Billing from './pages/Billing';
+import Settings from './pages/Settings';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 

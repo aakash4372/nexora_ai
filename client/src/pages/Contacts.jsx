@@ -27,7 +27,7 @@ export default function Contacts() {
         </div>
         <div className="field">
           <label>Channel</label>
-          <select id="c-channel"><option>Instagram</option><option>WhatsApp</option><option>Facebook</option><option>Manual</option></select>
+          <select id="c-channel"><option>Instagram</option><option>WhatsApp</option><option>Manual</option></select>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
           <button className="btn" style={{ flex: 1 }} onClick={closeModal}>Cancel</button>
@@ -44,7 +44,7 @@ export default function Contacts() {
     );
   }
 
-  const CHAN_BADGE = { Instagram: 'badge-purple', WhatsApp: 'badge-green', Facebook: 'badge-blue', Manual: 'badge-gray' };
+  const CHAN_BADGE = { Instagram: 'badge-purple', WhatsApp: 'badge-green', Manual: 'badge-gray' };
 
   return (
     <div>

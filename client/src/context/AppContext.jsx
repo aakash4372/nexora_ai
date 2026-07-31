@@ -32,7 +32,7 @@ const initialState = {
         { id: 2, from: 'out', text: "So sorry about that Karan — I've escalated it, refund issued if not delivered by Friday." },
         { id: 3, from: 'them', text: 'Thank you so much 🙏' },
       ]},
-    { id: 3, name: 'Neha Verma', channel: 'facebook', last: 'Can I get a discount code?', time: '1h', unread: 1, assigned: 'Unassigned', tags: ['Lead'], typing: false,
+    { id: 3, name: 'Neha Verma', channel: 'instagram', last: 'Can I get a discount code?', time: '1h', unread: 1, assigned: 'Unassigned', tags: ['Lead'], typing: false,
       msgs: [{ id: 1, from: 'them', text: 'Can I get a discount code?' }]},
     { id: 4, name: 'Devansh Rao', channel: 'instagram', last: 'Perfect, booking now', time: '3h', unread: 0, assigned: 'AI', tags: [], typing: false,
       msgs: [
@@ -49,7 +49,7 @@ const initialState = {
   contacts: [
     { id: 1, name: 'Riya Kapoor', channel: 'Instagram', phone: '+91 98765 43210', email: 'riya.k@gmail.com', score: 82, tags: ['Lead', 'VIP'] },
     { id: 2, name: 'Karan Mehta', channel: 'WhatsApp', phone: '+91 91234 56780', email: 'karan.m@gmail.com', score: 64, tags: ['Customer'] },
-    { id: 3, name: 'Neha Verma', channel: 'Facebook', phone: '+91 99887 66554', email: 'neha.v@gmail.com', score: 41, tags: ['Lead'] },
+    { id: 3, name: 'Neha Verma', channel: 'Instagram', phone: '+91 99887 66554', email: 'neha.v@gmail.com', score: 41, tags: ['Lead'] },
     { id: 4, name: 'Devansh Rao', channel: 'Instagram', phone: '+91 90000 11122', email: 'devansh.r@gmail.com', score: 77, tags: [] },
   ],
 
@@ -73,7 +73,6 @@ const initialState = {
 
   integrations: [
     { id: 'instagram', name: 'Instagram', desc: 'DMs, comments & story replies', connected: true, color: '#E1306C' },
-    { id: 'facebook', name: 'Facebook Messenger', desc: 'Page inbox automation', connected: true, color: '#1877F2' },
     { id: 'whatsapp', name: 'WhatsApp Business', desc: 'Cloud API messaging', connected: true, color: '#25D366' },
     { id: 'telegram', name: 'Telegram', desc: 'Bot API integration', connected: false, color: '#2AABEE' },
     { id: 'slack', name: 'Slack', desc: 'Team alerts & handoffs', connected: false, color: '#611f69' },

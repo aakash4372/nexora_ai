@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
           <h2 style={{ fontSize: 20, color: '#F8FAFC', marginBottom: 12 }}>2. Information We Collect</h2>
           <p>When you integrate Instagram Business with Nexora, we collect:</p>
           <ul style={{ paddingLeft: 20, marginTop: 8 }}>
-            <li><strong>Account Information:</strong> Your Instagram username, profile picture, account ID, and linked Facebook Page ID.</li>
+            <li><strong>Account Information:</strong> Your Instagram username, profile picture, and Instagram Business Account ID.</li>
             <li><strong>Messaging & Interactive Data:</strong> Direct Messages (DMs), post/story comment content, reaction events, and recipient usernames required to perform automated replies requested by you.</li>
             <li><strong>Access Tokens:</strong> Secure OAuth access tokens granted via Meta authorization to interact with Meta Graph APIs.</li>
           </ul>

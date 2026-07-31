@@ -5,7 +5,7 @@ const router = express.Router();
 let contacts = [
   { id: 1, name: 'Riya Kapoor', channel: 'Instagram', phone: '+91 98765 43210', email: 'riya.k@gmail.com', score: 82, tags: ['Lead', 'VIP'] },
   { id: 2, name: 'Karan Mehta', channel: 'WhatsApp', phone: '+91 91234 56780', email: 'karan.m@gmail.com', score: 64, tags: ['Customer'] },
-  { id: 3, name: 'Neha Verma', channel: 'Facebook', phone: '+91 99887 66554', email: 'neha.v@gmail.com', score: 41, tags: ['Lead'] },
+  { id: 3, name: 'Neha Verma', channel: 'Instagram', phone: '+91 99887 66554', email: 'neha.v@gmail.com', score: 41, tags: ['Lead'] },
   { id: 4, name: 'Devansh Rao', channel: 'Instagram', phone: '+91 90000 11122', email: 'devansh.r@gmail.com', score: 77, tags: [] },
 ];
 

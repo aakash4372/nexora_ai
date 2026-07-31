@@ -11,7 +11,6 @@ router.get('/callback', instagramController.callback);
 router.get('/connect', requireAuth, instagramController.connect);
 router.get('/status', requireAuth, instagramController.getStatus);
 router.post('/disconnect', requireAuth, instagramController.disconnect);
-router.get('/pages', requireAuth, instagramController.getPages);
 router.get('/profile', requireAuth, instagramController.getProfile);
 
 export default router;

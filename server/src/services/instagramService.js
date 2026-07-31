@@ -8,8 +8,8 @@ const BASE_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
  */
 export const instagramService = {
   getAuthUrl(state) {
-    const appId = process.env.FACEBOOK_APP_ID;
-    const redirectUri = encodeURIComponent(process.env.FACEBOOK_REDIRECT_URI);
+    const appId = process.env.META_APP_ID || process.env.FACEBOOK_APP_ID;
+    const redirectUri = encodeURIComponent(process.env.INSTAGRAM_REDIRECT_URI || process.env.FACEBOOK_REDIRECT_URI);
     const scopes = [
       'instagram_basic',
       'instagram_manage_messages',
@@ -20,16 +20,16 @@ export const instagramService = {
       'business_management'
     ];
 
-    return `https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes.join(',')}&response_type=code&state=${state}`;
+    return `https://www.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes.join(',')}&response_type=code&state=${state}`;
   },
 
   /**
    * Exchanges the OAuth authorization code for a long-lived page access token.
    */
   async exchangeCodeForToken(code) {
-    const appId = process.env.FACEBOOK_APP_ID;
-    const appSecret = process.env.FACEBOOK_APP_SECRET;
-    const redirectUri = process.env.FACEBOOK_REDIRECT_URI;
+    const appId = process.env.META_APP_ID || process.env.FACEBOOK_APP_ID;
+    const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET;
+    const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || process.env.FACEBOOK_REDIRECT_URI;
 
     // 1. Get short-lived user access token
     const tokenRes = await axios.get(`${BASE_URL}/oauth/access_token`, {

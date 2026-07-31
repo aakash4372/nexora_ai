@@ -164,20 +164,6 @@ export const instagramController = {
   },
 
   /**
-   * GET /api/instagram/pages
-   * Fetches connected Facebook pages (simulated/actual wrapper).
-   */
-  async getPages(req, res) {
-    try {
-      const conn = await InstagramConnection.findOne({ userId: req.userId });
-      if (!conn) return res.status(404).json({ success: false, message: 'No connected Instagram account found.' });
-      res.json({ success: true, pages: [{ id: conn.facebookPageId, name: conn.facebookPageName }] });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
-
-  /**
    * GET /api/instagram/profile
    * Returns connected profile.
    */

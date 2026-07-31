@@ -3,8 +3,8 @@ import { useApp } from '../context/AppContext';
 import Icon from '../components/Icon';
 import { conversationsAPI } from '../lib/api';
 
-const CHAN_COLOR = { instagram: '#E1306C', whatsapp: '#25D366', facebook: '#1877F2' };
-const CHAN_BADGE = { instagram: 'badge-purple', whatsapp: 'badge-green', facebook: 'badge-blue' };
+const CHAN_COLOR = { instagram: '#E1306C', whatsapp: '#25D366' };
+const CHAN_BADGE = { instagram: 'badge-purple', whatsapp: 'badge-green' };
 
 const FILTERS = [
   { id: 'all', label: 'All', count: null },
@@ -13,7 +13,6 @@ const FILTERS = [
   { id: 'ai', label: 'AI handled', count: null },
   { id: 'instagram', label: 'Instagram', count: null },
   { id: 'whatsapp', label: 'WhatsApp', count: null },
-  { id: 'facebook', label: 'Facebook', count: null },
 ];
 
 export default function Inbox() {
@@ -78,7 +77,7 @@ export default function Inbox() {
     if (state.inboxFilter === 'unread') return c.unread > 0;
     if (state.inboxFilter === 'assigned') return c.assigned !== 'Unassigned';
     if (state.inboxFilter === 'ai') return c.assigned === 'AI';
-    if (['instagram', 'whatsapp', 'facebook'].includes(state.inboxFilter)) return c.channel === state.inboxFilter;
+    if (['instagram', 'whatsapp'].includes(state.inboxFilter)) return c.channel === state.inboxFilter;
     return true;
   });
 

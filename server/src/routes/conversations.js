@@ -43,7 +43,7 @@ let conversations = [
   {
     id: 3,
     name: 'Neha Verma',
-    channel: 'facebook',
+    channel: 'instagram',
     last: 'Can I get a discount code?',
     time: '1h',
     unread: 1,

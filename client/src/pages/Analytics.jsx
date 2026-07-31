@@ -2,9 +2,8 @@ import { useApp } from '../context/AppContext';
 import Icon from '../components/Icon';
 
 const CHANNELS = [
-  { name: 'Instagram', msgs: 5210, pct: 41, color: '#E1306C' },
+  { name: 'Instagram', msgs: 7530, pct: 58, color: '#E1306C' },
   { name: 'WhatsApp', msgs: 4180, pct: 33, color: '#25D366' },
-  { name: 'Facebook', msgs: 2320, pct: 18, color: '#1877F2' },
   { name: 'Other', msgs: 1137, pct: 9, color: '#9398B3' },
 ];
 
