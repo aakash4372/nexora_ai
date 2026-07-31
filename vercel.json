@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/privacy",
+      "destination": "/client/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/client/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/client/index.html"
+    }
+  ]
+}
