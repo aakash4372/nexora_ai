@@ -126,7 +126,7 @@ export default function InstagramIntegration() {
                 <h2 style={{ fontSize: 19, fontWeight: 700, margin: 0, color: '#fff' }}>@{connection.instagramUsername}</h2>
                 <span className="badge badge-green">Connected</span>
               </div>
-              <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: 0 }}>Linked to Facebook Page: <strong>{connection.facebookPageName}</strong></p>
+              <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: 0 }}>Instagram Professional Business Account</p>
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>

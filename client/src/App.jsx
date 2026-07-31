@@ -24,7 +24,8 @@ import Integrations from './pages/Integrations';
 import InstagramIntegration from './pages/InstagramIntegration';
 import APIPage from './pages/APIPage';
 import Billing from './pages/Billing';
-import Settings from './pages/Settings';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 
 const PAGE_MAP = {
   dashboard: Dashboard,
@@ -44,6 +45,10 @@ const PAGE_MAP = {
 
 function AppInner() {
   const { state, logout, login } = useApp();
+
+  const pathname = window.location.pathname;
+  if (pathname === '/privacy') return <PrivacyPolicy />;
+  if (pathname === '/terms') return <TermsOfService />;
 
   // Auto-login on mount if token exists
   useEffect(() => {

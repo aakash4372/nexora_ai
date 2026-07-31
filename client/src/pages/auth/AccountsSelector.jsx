@@ -156,10 +156,10 @@ export default function AccountsSelector() {
               </div>
 
               <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 14, color: '#fff', fontFamily: 'var(--font-display)' }}>
-                Where would you like to start?
+                Connect Instagram Account
               </h1>
               <p style={{ color: 'var(--muted)', fontSize: 14.5, lineHeight: 1.5 }}>
-                Don't worry, you can connect other channels later.
+                Link your Instagram Professional Business Account to automate DMs, story replies, and comment triggers (ManyChat style).
               </p>
             </div>
 
@@ -178,62 +178,65 @@ export default function AccountsSelector() {
                 padding: 0
               }}
             >
-              <span>← Back</span>
+              <span>← Back to Accounts</span>
             </button>
           </div>
 
           {/* Right Panel */}
-          <div style={{ padding: '60px 48px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ padding: '60px 48px', display: 'flex', flexDirection: 'column', gap: 20, justifyContent: 'center' }}>
             <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'var(--muted-2)', fontWeight: 700, letterSpacing: '0.05em' }}>
-              Available Integrations
+              Instagram Automation Channel
             </div>
 
-            {/* Instagram Only */}
+            {/* Instagram Account Connection Card */}
             <div
               onClick={connectInstagram}
               style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: 14,
-                padding: '20px 24px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(225, 48, 108, 0.4)',
+                borderRadius: 16,
+                padding: '24px 28px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 transition: 'all 0.2s ease',
+                boxShadow: '0 8px 24px rgba(225,48,108,0.15)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                e.currentTarget.style.borderColor = 'rgba(91, 124, 250, 0.4)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.borderColor = 'rgba(225, 48, 108, 0.7)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                e.currentTarget.style.borderColor = 'rgba(225, 48, 108, 0.4)';
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
+                  width: 52,
+                  height: 52,
+                  borderRadius: 14,
                   background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#fff',
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: 700
                 }}>
                   IG
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 2 }}>Instagram</h3>
-                  <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
-                    Supercharge your social media marketing with Instagram Automation.
+                  <h3 style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Instagram Business</h3>
+                  <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: 0 }}>
+                    Connect your Instagram Account to enable DM automation.
                   </p>
                 </div>
               </div>
-              <div style={{ color: '#9BB1FF', fontSize: 16, fontWeight: 600 }}>Connect →</div>
+              <button className="btn btn-primary" style={{ background: 'linear-gradient(45deg, #f09433, #bc1888)', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 700 }}>
+                Connect Instagram →
+              </button>
             </div>
           </div>
         </div>
@@ -351,9 +354,9 @@ export default function AccountsSelector() {
               </div>
 
               <button
-                onClick={() => setView('connect')}
+                onClick={connectInstagram}
                 style={{
-                  background: '#5B7CFA',
+                  background: 'linear-gradient(45deg, #f09433, #bc1888)',
                   border: 'none',
                   color: '#fff',
                   padding: '9px 18px',
@@ -361,7 +364,7 @@ export default function AccountsSelector() {
                   fontWeight: 600,
                   fontSize: 13.5,
                   cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(91, 124, 250, 0.2)'
+                  boxShadow: '0 4px 12px rgba(225, 48, 108, 0.3)'
                 }}
               >
                 + Add New Account

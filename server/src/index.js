@@ -61,6 +61,35 @@ app.get('/health', (_req, res) => {
   });
 });
 
+/* ─── Meta Compliance: Privacy Policy & Terms ───────────── */
+app.get('/privacy', (_req, res) => {
+  res.send(`
+    <!Text html>
+    <html>
+      <head><title>Privacy Policy - Nexora Labs</title><style>body{font-family:sans-serif;background:#0F172A;color:#E2E8F0;padding:40px;line-height:1.6;}h1{color:#FFF;}</style></head>
+      <body>
+        <h1>Privacy Policy</h1>
+        <p>Nexora Labs collects Instagram profile metadata and Direct Message context solely for executing user-configured automated replies. We do not sell data to third parties. Data is encrypted using TLS and AES-256 at rest.</p>
+        <p>Contact: privacy@nexoralabs.io</p>
+      </body>
+    </html>
+  `);
+});
+
+app.get('/terms', (_req, res) => {
+  res.send(`
+    <!Text html>
+    <html>
+      <head><title>Terms of Service - Nexora Labs</title><style>body{font-family:sans-serif;background:#0F172A;color:#E2E8F0;padding:40px;line-height:1.6;}h1{color:#FFF;}</style></head>
+      <body>
+        <h1>Terms of Service</h1>
+        <p>By using Nexora Labs, you agree to comply with Meta & Instagram Platform Policies. Unsolicited spamming is strictly prohibited.</p>
+        <p>Contact: legal@nexoralabs.io</p>
+      </body>
+    </html>
+  `);
+});
+
 /* ─── API Routes ────────────────────────────────────────── */
 app.use('/api/auth', authRoutes);
 app.use('/api/conversations', conversationRoutes);

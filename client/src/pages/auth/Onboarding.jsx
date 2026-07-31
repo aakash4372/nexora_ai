@@ -2,26 +2,25 @@ import { useApp } from '../../context/AppContext';
 import Icon from '../../components/Icon';
 
 const STEPS = [
-  { title: 'Create your workspace', icon: 'building', desc: 'Give your workspace a name. You can invite teammates and connect channels next.' },
-  { title: 'Connect Facebook Page', icon: 'globe', desc: 'Link a Facebook Page so Nexora can manage Messenger conversations.' },
-  { title: 'Connect Instagram', icon: 'sparkle', desc: 'Link an Instagram professional account for DMs, comments & story replies.' },
-  { title: 'Grant Meta permissions', icon: 'key', desc: 'Approve the permissions Nexora needs to send & receive messages on your behalf.' },
-  { title: "You're all set", icon: 'check', desc: "Your workspace is ready. Let's take you to the dashboard." },
+  { title: 'Create your workspace', icon: 'building', desc: 'Give your workspace a name. You can connect your Instagram channel next.' },
+  { title: 'Connect Instagram Account', icon: 'sparkle', desc: 'Link an Instagram professional business account for DMs, comments & story replies.' },
+  { title: 'Grant Instagram permissions', icon: 'key', desc: 'Approve permissions for Nexora to automate Instagram DMs and comments.' },
+  { title: "You're all set", icon: 'check', desc: "Your workspace is ready. Let's take you to your Instagram automation dashboard." },
 ];
 
-const PERMISSIONS = ['Manage messages', 'Manage comments', 'Access page info', 'Manage leads'];
+const PERMISSIONS = ['Manage DMs & Messages', 'Manage Post & Story Comments', 'Access Profile Information', 'Lead Management'];
 
 export default function Onboarding() {
   const { state, dispatch, showToast } = useApp();
   const step = state.onboardingStep;
-  const stepData = STEPS[step - 1];
+  const stepData = STEPS[step - 1] || STEPS[0];
 
   function next() {
     if (step === 1) {
       const input = document.getElementById('ob-wsname');
       if (input?.value.trim()) dispatch({ type: 'SET_WORKSPACE', payload: { name: input.value.trim() } });
     }
-    if (step < 5) {
+    if (step < 4) {
       dispatch({ type: 'SET_ONBOARDING_STEP', payload: step + 1 });
     } else {
       dispatch({ type: 'SET_ONBOARDED', payload: true });
@@ -51,38 +50,21 @@ export default function Onboarding() {
     );
   } else if (step === 2) {
     body = (
-      <>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', border: '1px solid var(--glass-brd)', borderRadius: 12, marginBottom: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div className="integration-logo" style={{ background: 'rgba(24,119,242,0.15)', color: '#5B9BFF', width: 38, height: 38 }}>f</div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13.5 }}>Nexora Demo Page</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>1.2k followers</div>
-            </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', border: '1px solid var(--glass-brd)', borderRadius: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="integration-logo" style={{ background: 'linear-gradient(45deg, #f09433, #bc1888)', color: '#FFF', width: 42, height: 42, fontWeight: 'bold' }}>IG</div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>@nexoralabs.demo</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Instagram Business Account • 3.4k followers</div>
           </div>
-          <button className="btn btn-sm btn-primary" onClick={() => showToast('Facebook Page connected', 'success')}>Connect</button>
         </div>
-        <div className="section-note">This is a simulated connection for the prototype.</div>
-      </>
+        <button className="btn btn-sm btn-primary" onClick={() => showToast('Instagram account connected successfully!', 'success')}>Connect Instagram</button>
+      </div>
     );
   } else if (step === 3) {
     body = (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', border: '1px solid var(--glass-brd)', borderRadius: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div className="integration-logo" style={{ background: 'rgba(225,48,108,0.15)', color: '#F472B6', width: 38, height: 38 }}>ig</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13.5 }}>@nexoralabs.demo</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>3.4k followers</div>
-          </div>
-        </div>
-        <button className="btn btn-sm btn-primary" onClick={() => showToast('Instagram account connected', 'success')}>Connect</button>
-      </div>
-    );
-  } else if (step === 4) {
-    body = (
       <>
         {PERMISSIONS.map((p) => {
-          let toggled = true;
           return (
             <div key={p} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', border: '1px solid var(--glass-brd)', borderRadius: 12, marginBottom: 10 }}>
               <span style={{ fontSize: 13.5 }}>{p}</span>
@@ -95,7 +77,7 @@ export default function Onboarding() {
   } else {
     body = (
       <div className="section-note">
-        Workspace <b>{state.workspace.name}</b> is ready with Instagram, Facebook & Webhook connected. You can connect WhatsApp anytime from Integrations.
+        Workspace <b>{state.workspace.name}</b> is ready with Instagram Business Account connected. You can start creating your DM automations now.
       </div>
     );
   }
