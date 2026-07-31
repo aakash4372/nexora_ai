@@ -4,8 +4,11 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Public callback handler for Meta OAuth redirection
+// Webhook verification (GET) & OAuth redirect (GET)
 router.get('/callback', instagramController.callback);
+
+// Webhook events (POST)
+router.post('/callback', instagramController.handleWebhookEvent);
 
 // Authenticated routes
 router.get('/connect', requireAuth, instagramController.connect);

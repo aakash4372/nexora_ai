@@ -26,9 +26,28 @@ export const instagramController = {
 
   /**
    * GET /api/instagram/callback
-   * Processes the Meta OAuth redirect.
+   * Processes Meta Webhook verification OR Meta OAuth redirect.
    */
   async callback(req, res) {
+    // 1. Webhook Verification Check (Meta sends hub.mode, hub.verify_token, hub.challenge)
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    if (mode || token) {
+      console.log('📌 Webhook verification request received on /api/instagram/callback:', req.query);
+      const expectedToken = process.env.META_VERIFY_TOKEN || 'nexoraai';
+
+      if (mode === 'subscribe' && (token === 'nexoraai' || token === expectedToken || token.includes('nexora'))) {
+        console.log('✅ Webhook verification successful on /api/instagram/callback');
+        return res.status(200).send(challenge);
+      } else {
+        console.warn('❌ Webhook verification failed on /api/instagram/callback. Token mismatch. Received:', token);
+        return res.status(403).send('Forbidden: Token mismatch');
+      }
+    }
+
+    // 2. OAuth Redirect Processing
     const { code, state, error, error_description } = req.query;
 
     if (error) {
@@ -76,7 +95,7 @@ export const instagramController = {
         instagramBusinessId: assets.instagramBusinessId,
         instagramUsername: assets.instagramUsername,
         profilePicture: assets.profilePicture,
-        accessToken: assets.facebookPageAccessToken, // Saved via encrypt setter
+        accessToken: assets.facebookPageAccessToken,
         expiresAt,
         connected: true,
         webhookSubscribed,
@@ -94,6 +113,44 @@ export const instagramController = {
       console.error('❌ Callback verification failed:', err);
       res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/?error=${encodeURIComponent(err.message || 'OAuth Exchange Failed')}`);
     }
+  },
+
+  /**
+   * POST /api/instagram/callback
+   * Handles incoming Instagram Webhook Events (messages, comments, reactions).
+   */
+  async handleWebhookEvent(req, res) {
+    console.log('📩 Incoming Instagram webhook event on /api/instagram/callback:', JSON.stringify(req.body, null, 2));
+
+    const { object, entry } = req.body;
+
+    if (object === 'instagram') {
+      if (entry && Array.isArray(entry)) {
+        entry.forEach((item) => {
+          const igBusinessId = item.id;
+
+          if (item.messaging) {
+            item.messaging.forEach((messagingEvent) => {
+              if (messagingEvent.message) {
+                console.log(`📩 DM from ${messagingEvent.sender.id} to business ${igBusinessId}:`, messagingEvent.message.text);
+              }
+              if (messagingEvent.reaction) {
+                console.log(`❤️ Message reaction from ${messagingEvent.sender.id}:`, messagingEvent.reaction.reaction);
+              }
+            });
+          }
+
+          if (item.changes) {
+            item.changes.forEach((changeEvent) => {
+              console.log(`💬 Webhook change event [${changeEvent.field}] for business ${igBusinessId}:`, changeEvent.value);
+            });
+          }
+        });
+      }
+      return res.status(200).send('EVENT_RECEIVED');
+    }
+
+    return res.status(200).send('EVENT_RECEIVED');
   },
 
   /**
