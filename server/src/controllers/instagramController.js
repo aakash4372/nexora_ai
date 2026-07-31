@@ -26,29 +26,12 @@ export const instagramController = {
 
   /**
    * GET /api/instagram/callback
-   * Processes Meta Webhook verification OR Meta OAuth redirect.
+   * Processes Meta OAuth redirect (exchanges authorization code for access token).
    */
   async callback(req, res) {
-    // 1. Webhook Verification Check (Meta sends hub.mode, hub.verify_token, hub.challenge)
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
-
-    if (mode || token) {
-      console.log('📌 Webhook verification request received on /api/instagram/callback:', req.query);
-      const expectedToken = process.env.META_VERIFY_TOKEN || 'nexoraai';
-
-      if (mode === 'subscribe' && (token === 'nexoraai' || token === expectedToken || token.includes('nexora'))) {
-        console.log('✅ Webhook verification successful on /api/instagram/callback');
-        return res.status(200).send(challenge);
-      } else {
-        console.warn('❌ Webhook verification failed on /api/instagram/callback. Token mismatch. Received:', token);
-        return res.status(403).send('Forbidden: Token mismatch');
-      }
-    }
-
-    // 2. OAuth Redirect Processing
     const { code, state, error, error_description } = req.query;
+
+    console.log('📌 Instagram OAuth Callback received code:', code ? '[PRESENT]' : '[NONE]');
 
     if (error) {
       console.error('❌ Meta OAuth Error:', error, error_description);
@@ -107,7 +90,7 @@ export const instagramController = {
         { upsert: true, new: true }
       );
 
-      // Redirect client to landing selector page
+      console.log(`✅ Successfully connected Instagram Business Account: @${assets.instagramUsername}`);
       res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/?status=success`);
     } catch (err) {
       console.error('❌ Callback verification failed:', err);
@@ -116,11 +99,35 @@ export const instagramController = {
   },
 
   /**
-   * POST /api/instagram/callback
+   * GET /api/instagram/webhook
+   * Handles Meta Webhook Verification challenge.
+   */
+  async verifyWebhook(req, res) {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    console.log('📌 Webhook verification request received on /api/instagram/webhook:', req.query);
+    const expectedToken = process.env.META_VERIFY_TOKEN || 'nexoraai';
+
+    if (mode && token) {
+      if (mode === 'subscribe' && (token === 'nexoraai' || token === expectedToken || token.includes('nexora'))) {
+        console.log('✅ Webhook verification successful on /api/instagram/webhook');
+        return res.status(200).send(challenge);
+      } else {
+        console.warn('❌ Webhook verification failed. Token mismatch. Received:', token);
+        return res.status(403).send('Forbidden: Token mismatch');
+      }
+    }
+    return res.status(400).send('Bad Request');
+  },
+
+  /**
+   * POST /api/instagram/webhook
    * Handles incoming Instagram Webhook Events (messages, comments, reactions).
    */
   async handleWebhookEvent(req, res) {
-    console.log('📩 Incoming Instagram webhook event on /api/instagram/callback:', JSON.stringify(req.body, null, 2));
+    console.log('📩 Incoming Instagram webhook event on /api/instagram/webhook:', JSON.stringify(req.body, null, 2));
 
     const { object, entry } = req.body;
 

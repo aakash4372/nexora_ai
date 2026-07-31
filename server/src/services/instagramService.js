@@ -20,7 +20,7 @@ export const instagramService = {
       'business_management'
     ];
 
-    return `https://www.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes.join(',')}&response_type=code&state=${state}`;
+    return `https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes.join(',')}&response_type=code&state=${state}`;
   },
 
   /**

@@ -4,16 +4,15 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Webhook verification (GET) & OAuth redirect (GET)
-router.get('/callback', instagramController.callback);
-
-// Webhook events (POST)
-router.post('/callback', instagramController.handleWebhookEvent);
-
-// Authenticated routes
+// OAuth Routes
 router.get('/connect', requireAuth, instagramController.connect);
+router.get('/callback', instagramController.callback);
 router.get('/status', requireAuth, instagramController.getStatus);
 router.post('/disconnect', requireAuth, instagramController.disconnect);
 router.get('/profile', requireAuth, instagramController.getProfile);
+
+// Webhook Routes (Separate from OAuth Callback)
+router.get('/webhook', instagramController.verifyWebhook);
+router.post('/webhook', instagramController.handleWebhookEvent);
 
 export default router;
