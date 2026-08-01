@@ -386,10 +386,11 @@ export const instagramService = {
   },
 
   /**
-   * Sends a DM containing up to 3 call-to-action web-link buttons
-   * (Instagram/Messenger "button template" attachment).
+   * Sends a single DM combining the reply text with up to 3 call-to-action
+   * web-link buttons, rendered as one Instagram/Messenger "button template"
+   * bubble (text + attached buttons together, not two separate messages).
    */
-  async sendButtonMessage(igBusinessId, recipientId, ctaButtons, accessToken) {
+  async sendButtonMessage(igBusinessId, recipientId, messageText, ctaButtons, accessToken) {
     if (!recipientId || !accessToken || !igBusinessId || !ctaButtons?.length) return false;
 
     const payload = {
@@ -399,7 +400,7 @@ export const instagramService = {
           type: 'template',
           payload: {
             template_type: 'button',
-            text: '👇',
+            text: messageText?.trim() || '👇',
             buttons: ctaButtons.slice(0, 3).map((b) => ({
               type: 'web_url',
               url: b.url,

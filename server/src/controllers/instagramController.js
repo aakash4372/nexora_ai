@@ -402,10 +402,13 @@ export const instagramController = {
           await new Promise((resolve) => setTimeout(resolve, settings.delaySeconds * 1000));
         }
 
-        await instagramService.sendDirectMessage(igBusinessId, dm.senderId, activeTemplate.text, accessToken);
-
+        // When CTA buttons are configured, send text + buttons as a single
+        // combined bubble (Instagram button template) instead of two
+        // separate messages.
         if (activeTemplate.ctaButtons.length > 0) {
-          await instagramService.sendButtonMessage(igBusinessId, dm.senderId, activeTemplate.ctaButtons, accessToken);
+          await instagramService.sendButtonMessage(igBusinessId, dm.senderId, activeTemplate.text, activeTemplate.ctaButtons, accessToken);
+        } else {
+          await instagramService.sendDirectMessage(igBusinessId, dm.senderId, activeTemplate.text, accessToken);
         }
       }
     }

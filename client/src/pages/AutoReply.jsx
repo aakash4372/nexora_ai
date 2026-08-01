@@ -36,18 +36,30 @@ export default function AutoReply() {
   const [enabled, setEnabled] = useState(true);
   const [delaySeconds, setDelaySeconds] = useState('');
   const [templates, setTemplates] = useState([{ ...emptyTemplate(), active: true }]);
+  const [igProfile, setIgProfile] = useState(null);
+
+  const workspaceName = state.workspace?.name || 'Default Workspace';
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const res = await instagramAPI.getAutoReplySettings();
-        if (!cancelled && res.data.success) {
-          const s = res.data.data;
+        const [settingsRes, statusRes] = await Promise.all([
+          instagramAPI.getAutoReplySettings(),
+          instagramAPI.getStatus(workspaceName).catch(() => null),
+        ]);
+        if (!cancelled && settingsRes.data.success) {
+          const s = settingsRes.data.data;
           setEnabled(s.enabled !== false);
           setDelaySeconds(s.delaySeconds ? String(s.delaySeconds) : '');
           setTemplates(s.templates?.length ? s.templates : [{ ...emptyTemplate(), active: true }]);
+        }
+        if (!cancelled && statusRes?.data?.connected) {
+          setIgProfile({
+            username: statusRes.data.connection?.instagramUsername,
+            profilePicture: statusRes.data.connection?.profilePicture,
+          });
         }
       } catch (err) {
         console.error(err);
@@ -375,16 +387,17 @@ export default function AutoReply() {
 
         {/* ── Right: Instagram Chat Preview ── */}
         <div style={{ position: 'sticky', top: 84, display: 'flex', justifyContent: 'center' }}>
-          <PhonePreview template={activeTemplate} />
+          <PhonePreview template={activeTemplate} profile={igProfile} />
         </div>
       </div>
     </div>
   );
 }
 
-function PhonePreview({ template }) {
+function PhonePreview({ template, profile }) {
   const text = (template?.text || '').trim();
   const ctaButtons = (template?.ctaButtons || []).filter((b) => b.name?.trim());
+  const username = profile?.username || 'Instagram';
 
   return (
     <div style={{
@@ -410,15 +423,20 @@ function PhonePreview({ template }) {
           <div style={{
             width: 32, height: 32, borderRadius: '50%', background: IG_GRADIENT,
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            overflow: 'hidden',
           }}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" strokeWidth="2">
-              <rect x="2" y="2" width="20" height="20" rx="5" />
-              <circle cx="12" cy="12" r="4" />
-              <circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none" />
-            </svg>
+            {profile?.profilePicture ? (
+              <img src={profile.profilePicture} alt={username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" strokeWidth="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none" />
+              </svg>
+            )}
           </div>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>Instagram</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{username}</div>
             <div style={{ fontSize: 11, color: '#8E8E93' }}>Active now</div>
           </div>
         </div>
