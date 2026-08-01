@@ -254,11 +254,36 @@ export const instagramController = {
       return res.status(400).json({ success: false, message: 'At least one message template is required.' });
     }
 
+    // Instagram rejects button URLs that aren't well-formed absolute
+    // http(s) links — validate up front instead of failing silently at
+    // send time.
+    const isValidUrl = (url) => {
+      try {
+        const parsed = new URL(url.trim());
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    };
+
+    for (const t of templates) {
+      for (const b of t?.ctaButtons || []) {
+        if (b?.name && b?.url && !isValidUrl(b.url)) {
+          return res.status(400).json({
+            success: false,
+            message: `CTA button "${b.name}" has an invalid URL. It must start with http:// or https:// (e.g. https://example.com).`,
+          });
+        }
+      }
+    }
+
     const cleanTemplates = templates
       .filter((t) => t?.text && t.text.trim())
       .map((t) => ({
         text: t.text.trim(),
-        ctaButtons: Array.isArray(t.ctaButtons) ? t.ctaButtons.filter((b) => b?.name && b?.url).slice(0, 3) : [],
+        ctaButtons: Array.isArray(t.ctaButtons)
+          ? t.ctaButtons.filter((b) => b?.name && b?.url).map((b) => ({ name: b.name.trim(), url: b.url.trim() })).slice(0, 3)
+          : [],
         active: !!t.active,
       }));
 

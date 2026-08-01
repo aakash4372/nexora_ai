@@ -123,12 +123,31 @@ export default function AutoReply() {
     }));
   };
 
+  const isValidUrl = (url) => {
+    try {
+      const parsed = new URL(url.trim());
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   const handleSave = async () => {
     const cleanTemplates = templates.filter((t) => t.text.trim());
     if (cleanTemplates.length === 0) {
       showToast('At least one message template is required.', 'error');
       return;
     }
+
+    for (const t of cleanTemplates) {
+      for (const b of t.ctaButtons) {
+        if (b.name?.trim() && b.url?.trim() && !isValidUrl(b.url)) {
+          showToast(`CTA button "${b.name}" has an invalid URL — it must start with http:// or https://`, 'error');
+          return;
+        }
+      }
+    }
+
     if (!cleanTemplates.some((t) => t.active)) cleanTemplates[0].active = true;
 
     setSaving(true);
