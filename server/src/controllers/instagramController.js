@@ -328,11 +328,19 @@ export const instagramController = {
         ]
       }).sort({ updatedAt: -1 });
 
-      if (!conn) continue;
+      if (!conn) {
+        console.warn(`⚠️ No InstagramConnection found for igBusinessId ${igBusinessId}. Skipping.`);
+        continue;
+      }
 
       const accessToken = conn.accessToken;
       const settings = await AutoReplySettings.findOne({ workspaceId: conn.workspaceId });
-      if (!settings || !settings.enabled || settings.messages.length === 0) continue;
+      console.log(`🔎 Connection workspaceId="${conn.workspaceId}" | Settings found: ${!!settings} | enabled: ${settings?.enabled} | messages: ${settings?.messages?.length ?? 0}`);
+
+      if (!settings || !settings.enabled || settings.messages.length === 0) {
+        console.warn(`⚠️ Skipping DM reply — no enabled AutoReplySettings for workspaceId "${conn.workspaceId}".`);
+        continue;
+      }
 
       // Collect DM events from both the `changes` (messages field) and
       // legacy `messaging` array shapes Meta may send.
