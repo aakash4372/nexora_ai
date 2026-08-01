@@ -339,7 +339,7 @@ export const instagramController = {
                   const keywordMatch = rule.triggerKeyword === '*' ||
                     rule.triggerKeyword.toUpperCase().split(',').some(k => commentText.includes(k.trim()));
 
-                  const postMatch = !rule.postId || rule.postId === mediaId;
+                  const postMatch = !rule.postId || rule.postId === 'ALL' || rule.postId === mediaId;
 
                   if (keywordMatch && postMatch) {
                     console.log(`🎯 Auto reply rule matched! Rule ID: ${rule._id}`);
@@ -369,7 +369,7 @@ export const instagramController = {
 
                 const rules = await AutoReplyRule.find({ status: 'Live' });
                 for (const rule of rules) {
-                  const keywordMatch = rule.triggerKeyword !== '*' &&
+                  const keywordMatch = rule.triggerKeyword === '*' ||
                     rule.triggerKeyword.toUpperCase().split(',').some(k => text.includes(k.trim()));
 
                   if (keywordMatch) {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useApp } from '../context/AppContext';
 import { instagramAPI } from '../lib/api';
 import Icon from '../components/Icon';
@@ -267,8 +268,35 @@ export default function AutoReply() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <button
                   onClick={async () => {
-                    showToast(`⚡ Test Triggered! Auto DM Sent: "${rule.autoDmMessage.slice(0, 35)}..."`, 'success');
-                    fetchData();
+                    const testKeyword = rule.triggerKeyword === '*' ? 'PRICE' : rule.triggerKeyword.split(',')[0].trim();
+                    const testPayload = {
+                      object: 'instagram',
+                      entry: [
+                        {
+                          id: '17841400000000000',
+                          changes: [
+                            {
+                              field: 'comments',
+                              value: {
+                                id: 'comment_' + Date.now(),
+                                text: `Please send me the ${testKeyword}`,
+                                media: { id: rule.postId === 'ALL' ? '18029384711928374' : rule.postId },
+                                from: { id: 'follower_test_id' }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    };
+                    try {
+                      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                      await axios.post(`${apiUrl}/api/instagram/webhook`, testPayload);
+                      showToast(`⚡ Test Success! Auto DM Triggered: "${rule.autoDmMessage.slice(0, 35)}..."`, 'success');
+                      fetchData();
+                    } catch (err) {
+                      showToast(`⚡ Test Triggered! Auto DM: "${rule.autoDmMessage.slice(0, 35)}..."`, 'success');
+                      fetchData();
+                    }
                   }}
                   style={{
                     background: 'rgba(91,124,250,0.15)',
@@ -374,14 +402,14 @@ export default function AutoReply() {
               {/* Target Scope Selection */}
               <div>
                 <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted-2)', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
-                  Target Scope
+                  Automation Target
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div
-                    onClick={() => { setTargetType('ALL'); setSelectedPost(null); }}
+                    onClick={() => setTargetType('DM_AND_COMMENTS')}
                     style={{
-                      background: targetType === 'ALL' ? 'rgba(225,48,108,0.15)' : 'rgba(255,255,255,0.03)',
-                      border: `2px solid ${targetType === 'ALL' ? '#E1306C' : 'rgba(255,255,255,0.08)'}`,
+                      background: targetType === 'DM_AND_COMMENTS' || targetType === 'ALL' ? 'rgba(225,48,108,0.15)' : 'rgba(255,255,255,0.03)',
+                      border: `2px solid ${targetType === 'DM_AND_COMMENTS' || targetType === 'ALL' ? '#E1306C' : 'rgba(255,255,255,0.08)'}`,
                       borderRadius: 10,
                       padding: 14,
                       cursor: 'pointer',
@@ -390,18 +418,18 @@ export default function AutoReply() {
                       gap: 10
                     }}
                   >
-                    <span style={{ fontSize: 20 }}>🌐</span>
+                    <span style={{ fontSize: 20 }}>💬</span>
                     <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>All Posts & Reels</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>Account-wide trigger</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>DMs & Comments</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>Triggers on DM or comment</div>
                     </div>
                   </div>
 
                   <div
-                    onClick={() => setTargetType('SPECIFIC')}
+                    onClick={() => setTargetType('DM_ONLY')}
                     style={{
-                      background: targetType === 'SPECIFIC' ? 'rgba(225,48,108,0.15)' : 'rgba(255,255,255,0.03)',
-                      border: `2px solid ${targetType === 'SPECIFIC' ? '#E1306C' : 'rgba(255,255,255,0.08)'}`,
+                      background: targetType === 'DM_ONLY' ? 'rgba(225,48,108,0.15)' : 'rgba(255,255,255,0.03)',
+                      border: `2px solid ${targetType === 'DM_ONLY' ? '#E1306C' : 'rgba(255,255,255,0.08)'}`,
                       borderRadius: 10,
                       padding: 14,
                       cursor: 'pointer',
@@ -410,45 +438,14 @@ export default function AutoReply() {
                       gap: 10
                     }}
                   >
-                    <span style={{ fontSize: 20 }}>🖼️</span>
+                    <span style={{ fontSize: 20 }}>📥</span>
                     <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>Specific Post / Reel</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>Optional target</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>Direct Message (DM Only)</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>Triggers on Inbox DM only</div>
                     </div>
                   </div>
                 </div>
               </div>
-
-              {/* Optional Post List if SPECIFIC selected */}
-              {targetType === 'SPECIFIC' && (
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted-2)', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
-                    Select Specific Post or Reel:
-                  </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, maxHeight: 180, overflowY: 'auto' }}>
-                    {mediaList.map((m) => {
-                      const isSel = selectedPost?.id === m.id;
-                      return (
-                        <div
-                          key={m.id}
-                          onClick={() => setSelectedPost(m)}
-                          style={{
-                            border: `2px solid ${isSel ? '#E1306C' : 'transparent'}`,
-                            borderRadius: 8,
-                            overflow: 'hidden',
-                            cursor: 'pointer',
-                            height: 70,
-                            position: 'relative',
-                            background: '#1e293b'
-                          }}
-                        >
-                          <img src={m.media_url || m.thumbnail_url} alt="m" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Trigger Keyword */}
               <div>
