@@ -322,9 +322,10 @@ export const instagramController = {
         for (const item of entry) {
           const igBusinessId = item.id;
 
-          // Process Instagram Comments (Post / Reel comment triggers)
+          // Process Instagram Comments & Messages from item.changes
           if (item.changes) {
             for (const changeEvent of item.changes) {
+              // 1. Comments
               if (changeEvent.field === 'comments' || changeEvent.field === 'live_comments') {
                 const commentValue = changeEvent.value;
                 const commentText = (commentValue?.text || '').toUpperCase();
@@ -333,7 +334,6 @@ export const instagramController = {
 
                 console.log(`💬 New Instagram comment on media ${mediaId}: "${commentValue?.text}" by ${commenterId}`);
 
-                // Find matching active auto-reply rules for this post or workspace
                 const rules = await AutoReplyRule.find({ status: 'Live' });
                 for (const rule of rules) {
                   const keywordMatch = rule.triggerKeyword === '*' ||
@@ -346,26 +346,49 @@ export const instagramController = {
                     rule.runs += 1;
                     await rule.save();
 
-                    // Send Auto DM to commenter
                     if (commenterId && rule.autoDmMessage) {
                       await instagramService.sendDirectMessage(igBusinessId, commenterId, rule.autoDmMessage);
                     }
-                    // Post optional comment reply
                     if (commentValue?.id && rule.publicCommentReply) {
                       await instagramService.replyToComment(commentValue.id, rule.publicCommentReply);
                     }
                   }
                 }
               }
+
+              // 2. Direct Messages via item.changes
+              if (changeEvent.field === 'messages' || changeEvent.field === 'messaging') {
+                const dmValue = changeEvent.value;
+                const dmText = (dmValue?.message?.text || dmValue?.text || '').toUpperCase();
+                const senderId = dmValue?.sender?.id || dmValue?.from?.id;
+
+                console.log(`📩 New Instagram DM via changes field: "${dmText}" from ${senderId}`);
+
+                const rules = await AutoReplyRule.find({ status: 'Live' });
+                for (const rule of rules) {
+                  const keywordMatch = rule.triggerKeyword === '*' ||
+                    rule.triggerKeyword.toUpperCase().split(',').some(k => dmText.includes(k.trim()));
+
+                  if (keywordMatch) {
+                    console.log(`🎯 Auto DM keyword matched for DM from ${senderId}! Rule ID: ${rule._id}`);
+                    rule.runs += 1;
+                    await rule.save();
+
+                    await instagramService.sendDirectMessage(igBusinessId, senderId, rule.autoDmMessage);
+                  }
+                }
+              }
             }
           }
 
-          // Process direct message triggers
+          // Process direct message triggers via item.messaging
           if (item.messaging) {
             for (const messagingEvent of item.messaging) {
               if (messagingEvent.message && messagingEvent.sender) {
                 const text = (messagingEvent.message.text || '').toUpperCase();
                 const senderId = messagingEvent.sender.id;
+
+                console.log(`📩 New Instagram DM via messaging field: "${text}" from ${senderId}`);
 
                 const rules = await AutoReplyRule.find({ status: 'Live' });
                 for (const rule of rules) {
