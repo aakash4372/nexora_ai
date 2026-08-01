@@ -11,6 +11,13 @@ router.get('/status', requireAuth, instagramController.getStatus);
 router.post('/disconnect', requireAuth, instagramController.disconnect);
 router.get('/profile', requireAuth, instagramController.getProfile);
 
+// Media & Auto Reply Routes
+router.get('/media', requireAuth, instagramController.getMedia);
+router.get('/auto-replies', requireAuth, instagramController.getAutoReplies);
+router.post('/auto-replies', requireAuth, instagramController.createAutoReply);
+router.patch('/auto-replies/:id', requireAuth, instagramController.toggleAutoReply);
+router.delete('/auto-replies/:id', requireAuth, instagramController.deleteAutoReply);
+
 // Webhook Routes (Separate from OAuth Callback)
 router.get('/webhook', instagramController.verifyWebhook);
 router.post('/webhook', instagramController.handleWebhookEvent);

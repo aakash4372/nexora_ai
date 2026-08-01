@@ -1,5 +1,6 @@
 import { instagramService } from '../services/instagramService.js';
 import InstagramConnection from '../models/InstagramConnection.js';
+import AutoReplyRule from '../models/AutoReplyRule.js';
 
 export const instagramController = {
   /**
@@ -184,6 +185,106 @@ export const instagramController = {
   },
 
   /**
+   * GET /api/instagram/media
+   * Fetches published Instagram Posts & Reels for the workspace.
+   */
+  async getMedia(req, res) {
+    const { workspaceId } = req.query;
+    try {
+      let accessToken = null;
+      let instagramUserId = null;
+      if (workspaceId) {
+        const conn = await InstagramConnection.findOne({ workspaceId });
+        if (conn) {
+          accessToken = conn.accessToken;
+          instagramUserId = conn.instagramBusinessId || conn.instagramUserId;
+        }
+      }
+      const media = await instagramService.fetchUserMedia(accessToken, instagramUserId);
+      res.json({ success: true, media });
+    } catch (error) {
+      console.error("Failed to fetch media:", error);
+      res.status(500).json({ success: false, message: 'Failed to fetch media.', error: error.message });
+    }
+  },
+
+  /**
+   * GET /api/instagram/auto-replies
+   */
+  async getAutoReplies(req, res) {
+    const { workspaceId } = req.query;
+    try {
+      const filter = workspaceId ? { workspaceId } : {};
+      const rules = await AutoReplyRule.find(filter).sort({ createdAt: -1 });
+      res.json({ success: true, data: rules });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Failed to fetch auto replies.', error: error.message });
+    }
+  },
+
+  /**
+   * POST /api/instagram/auto-replies
+   */
+  async createAutoReply(req, res) {
+    const { workspaceId, postId, postCaption, postMediaUrl, mediaType, permalink, triggerKeyword, autoDmMessage, publicCommentReply } = req.body;
+
+    if (!workspaceId || !postId || !autoDmMessage) {
+      return res.status(400).json({ success: false, message: 'workspaceId, postId, and autoDmMessage are required.' });
+    }
+
+    try {
+      const rule = await AutoReplyRule.create({
+        workspaceId,
+        userId: req.userId,
+        postId,
+        postCaption: postCaption || '',
+        postMediaUrl: postMediaUrl || '',
+        mediaType: mediaType || 'IMAGE',
+        permalink: permalink || '',
+        triggerKeyword: triggerKeyword || '*',
+        autoDmMessage,
+        publicCommentReply: publicCommentReply || '',
+        status: 'Live',
+        runs: 0
+      });
+
+      res.status(201).json({ success: true, data: rule, message: 'Auto reply rule created successfully!' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Failed to create auto reply rule.', error: error.message });
+    }
+  },
+
+  /**
+   * PATCH /api/instagram/auto-replies/:id
+   */
+  async toggleAutoReply(req, res) {
+    const { id } = req.params;
+    try {
+      const rule = await AutoReplyRule.findById(id);
+      if (!rule) return res.status(404).json({ success: false, message: 'Rule not found.' });
+
+      rule.status = rule.status === 'Live' ? 'Paused' : 'Live';
+      await rule.save();
+      res.json({ success: true, data: rule });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Failed to toggle rule.', error: error.message });
+    }
+  },
+
+  /**
+   * DELETE /api/instagram/auto-replies/:id
+   */
+  async deleteAutoReply(req, res) {
+    const { id } = req.params;
+    try {
+      await AutoReplyRule.findByIdAndDelete(id);
+      res.json({ success: true, message: 'Auto reply rule deleted successfully.' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Failed to delete rule.', error: error.message });
+    }
+  },
+
+  /**
    * GET /api/instagram/webhook
    * Handles Meta Webhook Verification challenge.
    */
@@ -218,26 +319,71 @@ export const instagramController = {
 
     if (object === 'instagram') {
       if (entry && Array.isArray(entry)) {
-        entry.forEach((item) => {
+        for (const item of entry) {
           const igBusinessId = item.id;
 
-          if (item.messaging) {
-            item.messaging.forEach((messagingEvent) => {
-              if (messagingEvent.message) {
-                console.log(`📩 DM from ${messagingEvent.sender.id} to business ${igBusinessId}:`, messagingEvent.message.text);
+          // Process Instagram Comments (Post / Reel comment triggers)
+          if (item.changes) {
+            for (const changeEvent of item.changes) {
+              if (changeEvent.field === 'comments' || changeEvent.field === 'live_comments') {
+                const commentValue = changeEvent.value;
+                const commentText = (commentValue?.text || '').toUpperCase();
+                const mediaId = commentValue?.media?.id || commentValue?.id;
+                const commenterId = commentValue?.from?.id;
+
+                console.log(`💬 New Instagram comment on media ${mediaId}: "${commentValue?.text}" by ${commenterId}`);
+
+                // Find matching active auto-reply rules for this post or workspace
+                const rules = await AutoReplyRule.find({ status: 'Live' });
+                for (const rule of rules) {
+                  const keywordMatch = rule.triggerKeyword === '*' ||
+                    rule.triggerKeyword.toUpperCase().split(',').some(k => commentText.includes(k.trim()));
+
+                  const postMatch = !rule.postId || rule.postId === mediaId;
+
+                  if (keywordMatch && postMatch) {
+                    console.log(`🎯 Auto reply rule matched! Rule ID: ${rule._id}`);
+                    rule.runs += 1;
+                    await rule.save();
+
+                    // Send Auto DM to commenter
+                    if (commenterId && rule.autoDmMessage) {
+                      await instagramService.sendDirectMessage(igBusinessId, commenterId, rule.autoDmMessage);
+                    }
+                    // Post optional comment reply
+                    if (commentValue?.id && rule.publicCommentReply) {
+                      await instagramService.replyToComment(commentValue.id, rule.publicCommentReply);
+                    }
+                  }
+                }
               }
-              if (messagingEvent.reaction) {
-                console.log(`❤️ Message reaction from ${messagingEvent.sender.id}:`, messagingEvent.reaction.reaction);
-              }
-            });
+            }
           }
 
-          if (item.changes) {
-            item.changes.forEach((changeEvent) => {
-              console.log(`💬 Webhook change event [${changeEvent.field}] for business ${igBusinessId}:`, changeEvent.value);
-            });
+          // Process direct message triggers
+          if (item.messaging) {
+            for (const messagingEvent of item.messaging) {
+              if (messagingEvent.message && messagingEvent.sender) {
+                const text = (messagingEvent.message.text || '').toUpperCase();
+                const senderId = messagingEvent.sender.id;
+
+                const rules = await AutoReplyRule.find({ status: 'Live' });
+                for (const rule of rules) {
+                  const keywordMatch = rule.triggerKeyword !== '*' &&
+                    rule.triggerKeyword.toUpperCase().split(',').some(k => text.includes(k.trim()));
+
+                  if (keywordMatch) {
+                    console.log(`🎯 Auto DM keyword matched for DM from ${senderId}! Rule ID: ${rule._id}`);
+                    rule.runs += 1;
+                    await rule.save();
+
+                    await instagramService.sendDirectMessage(igBusinessId, senderId, rule.autoDmMessage);
+                  }
+                }
+              }
+            }
           }
-        });
+        }
       }
       return res.status(200).send('EVENT_RECEIVED');
     }
@@ -245,3 +391,4 @@ export const instagramController = {
     return res.status(200).send('EVENT_RECEIVED');
   }
 };
+

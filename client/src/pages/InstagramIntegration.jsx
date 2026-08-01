@@ -4,7 +4,7 @@ import { instagramAPI } from '../lib/api';
 import Icon from '../components/Icon';
 
 export default function InstagramIntegration() {
-  const { state, showToast } = useApp();
+  const { state, showToast, goPage } = useApp();
   const [loading, setLoading] = useState(true);
   const [connection, setConnection] = useState(null);
 
@@ -129,7 +129,14 @@ export default function InstagramIntegration() {
               <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: 0 }}>Instagram Professional Business Account</p>
             </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => goPage('auto-reply')}
+                style={{ background: 'linear-gradient(45deg, #f09433, #bc1888)', border: 'none', fontWeight: 700 }}
+              >
+                ⚡ Setup Auto Reply
+              </button>
               <button className="btn" onClick={handleConnect} disabled={loading}>
                 Reconnect
               </button>

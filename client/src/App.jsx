@@ -22,6 +22,7 @@ import AIAssist from './pages/AIAssist';
 import Team from './pages/Team';
 import Integrations from './pages/Integrations';
 import InstagramIntegration from './pages/InstagramIntegration';
+import AutoReply from './pages/AutoReply';
 import APIPage from './pages/APIPage';
 import Billing from './pages/Billing';
 import Settings from './pages/Settings';
@@ -39,6 +40,7 @@ const PAGE_MAP = {
   team: Team,
   integrations: Integrations,
   instagram: InstagramIntegration,
+  'auto-reply': AutoReply,
   api: APIPage,
   billing: Billing,
   settings: Settings,
