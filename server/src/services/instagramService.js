@@ -200,33 +200,54 @@ export const instagramService = {
   },
 
   /**
-   * Subscribes webhook events.
+   * Subscribes the connected IG account to receive "messages"/"comments" webhook
+   * events. Accounts connected via direct Instagram Business Login authenticate
+   * this call with their own IG access token against graph.instagram.com, not a
+   * Facebook Page token. Falls back to the Page-based call for accounts that were
+   * connected through a linked Facebook Page (facebookPageId/facebookPageAccessToken).
    */
-  async subscribeWebhook(pageId, pageAccessToken) {
-    if (!pageId || !pageAccessToken) return false;
-    try {
-      const url = `${FACEBOOK_GRAPH_URL}/${pageId}/subscribed_apps`;
-      const response = await axios.post(
-        url,
-        { subscribed_fields: ['messages', 'message_reactions'] },
-        { headers: { Authorization: `Bearer ${pageAccessToken}` } }
-      );
-      return response.data.success === true;
-    } catch (err) {
-      console.warn("Webhook subscription notice:", err.message);
-      return false;
+  async subscribeWebhook(igUserId, accessToken, facebookPageId, facebookPageAccessToken) {
+    if (igUserId && accessToken) {
+      try {
+        const url = `${INSTAGRAM_GRAPH_URL}/${igUserId}/subscribed_apps`;
+        const response = await axios.post(url, null, {
+          params: {
+            subscribed_fields: 'messages,comments',
+            access_token: accessToken,
+          },
+        });
+        if (response.data.success === true) return true;
+      } catch (err) {
+        console.warn("IG webhook subscription notice:", err.response?.data || err.message);
+      }
     }
+
+    if (facebookPageId && facebookPageAccessToken) {
+      try {
+        const url = `${FACEBOOK_GRAPH_URL}/${facebookPageId}/subscribed_apps`;
+        const response = await axios.post(
+          url,
+          { subscribed_fields: ['messages', 'message_reactions'] },
+          { headers: { Authorization: `Bearer ${facebookPageAccessToken}` } }
+        );
+        return response.data.success === true;
+      } catch (err) {
+        console.warn("Facebook Page webhook subscription notice:", err.response?.data || err.message);
+      }
+    }
+
+    return false;
   },
 
   /**
    * Deletes webhook subscription.
    */
-  async deleteWebhookSubscription(pageId, pageAccessToken) {
-    if (!pageId || !pageAccessToken) return false;
+  async deleteWebhookSubscription(igUserId, accessToken) {
+    if (!igUserId || !accessToken) return false;
     try {
-      const url = `${FACEBOOK_GRAPH_URL}/${pageId}/subscribed_apps`;
+      const url = `${INSTAGRAM_GRAPH_URL}/${igUserId}/subscribed_apps`;
       const response = await axios.delete(url, {
-        headers: { Authorization: `Bearer ${pageAccessToken}` }
+        params: { access_token: accessToken },
       });
       return response.data.success === true;
     } catch (err) {
@@ -324,57 +345,43 @@ export const instagramService = {
 
     if ((!recipientId && !commentId) || !messageText) return false;
 
-    if (accessToken && igBusinessId) {
-      // 1. Meta Private Reply API via comment_id (for post/reel comment triggers)
-      if (commentId) {
-        try {
-          const res = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, {
-            recipient: { comment_id: commentId },
-            message: { text: messageText }
-          }, {
-            params: { access_token: accessToken },
-            headers: { 'Content-Type': 'application/json' }
-          });
-          console.log(`✅ Private Reply DM sent via comment_id ${commentId}:`, res.data);
-          return true;
-        } catch (err) {
-          console.warn("Private Reply DM via comment_id notice:", err.response?.data || err.message);
-        }
-      }
-
-      // 2. Direct Meta Graph API message via recipient ID (for Inbox DMs)
-      if (recipientId) {
-        try {
-          const res = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, {
-            recipient: { id: recipientId },
-            message: { text: messageText }
-          }, {
-            params: { access_token: accessToken },
-            headers: { 'Content-Type': 'application/json' }
-          });
-          console.log(`✅ Live Instagram DM delivered successfully to ${recipientId}:`, res.data);
-          return true;
-        } catch (err) {
-          console.warn("Primary Meta Graph DM send notice:", err.response?.data || err.message);
-        }
-
-        // 3. Fallback Instagram Graph API /me/messages
-        try {
-          const res2 = await axios.post(`${INSTAGRAM_GRAPH_URL}/me/messages`, {
-            recipient: { id: recipientId },
-            message: { text: messageText },
-            access_token: accessToken
-          });
-          console.log(`✅ Live Instagram DM delivered via Instagram Graph API:`, res2.data);
-          return true;
-        } catch (err2) {
-          console.warn("Fallback Instagram Graph DM send notice:", err2.response?.data || err2.message);
-        }
-      }
-    } else {
+    if (!accessToken || !igBusinessId) {
       console.log(`ℹ️ Demo/Local Mode: Auto DM trigger logged for ${recipientId || commentId}`);
+      return false;
     }
-    return true;
+
+    // 1. Instagram Graph API (correct endpoint/token pairing for accounts
+    //    connected via direct Instagram Business Login).
+    const recipient = commentId ? { comment_id: commentId } : { id: recipientId };
+    try {
+      const res = await axios.post(`${INSTAGRAM_GRAPH_URL}/${igBusinessId}/messages`, {
+        recipient,
+        message: { text: messageText }
+      }, {
+        params: { access_token: accessToken },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log(`✅ Live Instagram DM delivered to ${recipientId || commentId}:`, res.data);
+      return true;
+    } catch (err) {
+      console.warn("Instagram Graph API DM send failed:", err.response?.data || err.message);
+    }
+
+    // 2. Fallback: Meta Graph API (for accounts connected via a linked Facebook Page).
+    try {
+      const res2 = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, {
+        recipient,
+        message: { text: messageText }
+      }, {
+        params: { access_token: accessToken },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log(`✅ Live Instagram DM delivered via Meta Graph API fallback:`, res2.data);
+      return true;
+    } catch (err2) {
+      console.error(`❌ Auto DM to ${recipientId || commentId} failed on both endpoints:`, err2.response?.data || err2.message);
+      return false;
+    }
   },
 
   /**

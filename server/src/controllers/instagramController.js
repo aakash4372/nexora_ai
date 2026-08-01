@@ -67,6 +67,15 @@ export const instagramController = {
 
       const tokenExpiry = expiresIn ? new Date(Date.now() + expiresIn * 1000) : new Date(Date.now() + 60 * 86400 * 1000);
 
+      // Actually tell Meta to start sending "messages"/"comments" webhook events
+      // for this IG account instead of just assuming it's subscribed.
+      const webhookSubscribed = await instagramService.subscribeWebhook(
+        accountInfo.instagramBusinessId || accountInfo.instagramUserId,
+        accessToken,
+        accountInfo.facebookPageId,
+        accountInfo.facebookPageAccessToken
+      );
+
       const connectionData = {
         workspaceId,
         userId,
@@ -80,7 +89,7 @@ export const instagramController = {
         expiresAt: tokenExpiry,
         connected: true,
         connectedAt: new Date(),
-        webhookSubscribed: true,
+        webhookSubscribed,
       };
 
       await InstagramConnection.findOneAndUpdate(
@@ -88,6 +97,10 @@ export const instagramController = {
         connectionData,
         { upsert: true, new: true }
       );
+
+      if (!webhookSubscribed) {
+        console.warn(`⚠️ Instagram connected but webhook subscription FAILED for @${accountInfo.username}. Auto-replies will not trigger until this is resolved.`);
+      }
 
       console.log(`🎉 Instagram connected successfully! Connected account: @${accountInfo.username}`);
       res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/?status=success`);
