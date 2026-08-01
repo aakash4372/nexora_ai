@@ -26,17 +26,16 @@ const labelStyle = {
   display: 'block',
 };
 
+const emptyTemplate = () => ({ text: '', ctaButtons: [], active: false });
+
 export default function AutoReply() {
   const { state, showToast } = useApp();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [enabled, setEnabled] = useState(true);
-  const [messages, setMessages] = useState(['Hello! 👋 Thanks for messaging us.', 'How can we help you today?']);
   const [delaySeconds, setDelaySeconds] = useState('');
-  const [ctaButtons, setCtaButtons] = useState([]);
-
-  const workspaceName = state.workspace?.name || 'Default Workspace';
+  const [templates, setTemplates] = useState([{ ...emptyTemplate(), active: true }]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,9 +46,8 @@ export default function AutoReply() {
         if (!cancelled && res.data.success) {
           const s = res.data.data;
           setEnabled(s.enabled !== false);
-          setMessages(s.messages?.length ? s.messages : ['']);
           setDelaySeconds(s.delaySeconds ? String(s.delaySeconds) : '');
-          setCtaButtons(s.ctaButtons || []);
+          setTemplates(s.templates?.length ? s.templates : [{ ...emptyTemplate(), active: true }]);
         }
       } catch (err) {
         console.error(err);
@@ -60,46 +58,77 @@ export default function AutoReply() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceName]);
+  }, []);
 
-  const updateMessage = (idx, value) => {
-    setMessages((prev) => prev.map((m, i) => (i === idx ? value : m)));
-  };
-  const addMessage = () => setMessages((prev) => [...prev, '']);
-  const removeMessage = (idx) => setMessages((prev) => prev.filter((_, i) => i !== idx));
+  const activeIndex = templates.findIndex((t) => t.active);
+  const activeTemplate = templates[activeIndex] || templates[0];
 
-  const updateCta = (idx, field, value) => {
-    setCtaButtons((prev) => prev.map((b, i) => (i === idx ? { ...b, [field]: value } : b)));
+  const setActiveTemplate = (idx) => {
+    setTemplates((prev) => prev.map((t, i) => ({ ...t, active: i === idx })));
   };
-  const addCta = () => {
-    if (ctaButtons.length >= 3) {
-      showToast('Instagram allows a maximum of 3 buttons per message.', 'error');
-      return;
-    }
-    setCtaButtons((prev) => [...prev, { name: '', url: '' }]);
+
+  const updateTemplateText = (idx, value) => {
+    setTemplates((prev) => prev.map((t, i) => (i === idx ? { ...t, text: value } : t)));
   };
-  const removeCta = (idx) => setCtaButtons((prev) => prev.filter((_, i) => i !== idx));
+
+  const addTemplate = () => {
+    setTemplates((prev) => [...prev, emptyTemplate()]);
+  };
+
+  const removeTemplate = (idx) => {
+    setTemplates((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      if (prev[idx]?.active && next.length > 0 && !next.some((t) => t.active)) {
+        next[0] = { ...next[0], active: true };
+      }
+      return next;
+    });
+  };
+
+  const addCta = (idx) => {
+    setTemplates((prev) => prev.map((t, i) => {
+      if (i !== idx) return t;
+      if (t.ctaButtons.length >= 3) {
+        showToast('Instagram allows a maximum of 3 buttons per message.', 'error');
+        return t;
+      }
+      return { ...t, ctaButtons: [...t.ctaButtons, { name: '', url: '' }] };
+    }));
+  };
+
+  const updateCta = (idx, ctaIdx, field, value) => {
+    setTemplates((prev) => prev.map((t, i) => {
+      if (i !== idx) return t;
+      const ctaButtons = t.ctaButtons.map((b, bi) => (bi === ctaIdx ? { ...b, [field]: value } : b));
+      return { ...t, ctaButtons };
+    }));
+  };
+
+  const removeCta = (idx, ctaIdx) => {
+    setTemplates((prev) => prev.map((t, i) => {
+      if (i !== idx) return t;
+      return { ...t, ctaButtons: t.ctaButtons.filter((_, bi) => bi !== ctaIdx) };
+    }));
+  };
 
   const handleSave = async () => {
-    const cleanMessages = messages.map((m) => m.trim()).filter(Boolean);
-    if (cleanMessages.length === 0) {
-      showToast('At least one welcome message is required.', 'error');
+    const cleanTemplates = templates.filter((t) => t.text.trim());
+    if (cleanTemplates.length === 0) {
+      showToast('At least one message template is required.', 'error');
       return;
     }
-    const cleanCtas = ctaButtons.filter((b) => b.name?.trim() && b.url?.trim());
+    if (!cleanTemplates.some((t) => t.active)) cleanTemplates[0].active = true;
 
     setSaving(true);
     try {
       const res = await instagramAPI.saveAutoReplySettings({
         enabled,
-        messages: cleanMessages,
         delaySeconds: Number(delaySeconds) || 0,
-        ctaButtons: cleanCtas,
+        templates: cleanTemplates,
       });
       if (res.data.success) {
         showToast('Auto Reply settings saved! 🎉', 'success');
-        setMessages(cleanMessages);
-        setCtaButtons(cleanCtas);
+        setTemplates(res.data.data.templates);
       } else {
         showToast('Failed to save settings.', 'error');
       }
@@ -145,143 +174,183 @@ export default function AutoReply() {
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 1fr) 340px', gap: 24, alignItems: 'flex-start' }}>
 
         {/* ── Left: Settings Form ── */}
-        <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-          {/* Enable / Disable */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>Auto Reply</div>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>
-                Automatically message anyone who sends you a DM
+          <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Enable / Disable */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>Auto Reply</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>
+                  Automatically message anyone who sends you a DM
+                </div>
+              </div>
+              <div
+                onClick={() => setEnabled((e) => !e)}
+                role="switch"
+                aria-checked={enabled}
+                style={{
+                  width: 46, height: 26, borderRadius: 20, cursor: 'pointer', flexShrink: 0,
+                  background: enabled ? IG_GRADIENT : 'rgba(255,255,255,0.12)',
+                  position: 'relative', transition: 'background 0.15s',
+                }}
+              >
+                <div style={{
+                  position: 'absolute', top: 3, left: enabled ? 23 : 3,
+                  width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                  transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                }} />
               </div>
             </div>
-            <div
-              onClick={() => setEnabled((e) => !e)}
-              role="switch"
-              aria-checked={enabled}
-              style={{
-                width: 46, height: 26, borderRadius: 20, cursor: 'pointer', flexShrink: 0,
-                background: enabled ? IG_GRADIENT : 'rgba(255,255,255,0.12)',
-                position: 'relative', transition: 'background 0.15s',
-              }}
-            >
-              <div style={{
-                position: 'absolute', top: 3, left: enabled ? 23 : 3,
-                width: 20, height: 20, borderRadius: '50%', background: '#fff',
-                transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-              }} />
+
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
+
+            {/* Delay */}
+            <div>
+              <label style={labelStyle}>Delay (Optional)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="number"
+                  min="0"
+                  value={delaySeconds}
+                  onChange={(e) => setDelaySeconds(e.target.value)}
+                  placeholder="0"
+                  style={{ ...inputStyle, width: 120 }}
+                />
+                <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>seconds before sending the reply</span>
+              </div>
             </div>
           </div>
 
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
+          {/* Message templates */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Welcome Message Templates</label>
 
-          {/* Welcome Messages */}
-          <div>
-            <label style={labelStyle}>Welcome Message</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {messages.map((msg, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                  <textarea
-                    rows={2}
-                    value={msg}
-                    onChange={(e) => updateMessage(idx, e.target.value)}
-                    placeholder={idx === 0 ? 'Hello! 👋 Thanks for messaging us.' : 'Add another message in the sequence...'}
-                    style={{ ...inputStyle, resize: 'vertical', flex: 1 }}
-                  />
-                  {messages.length > 1 && (
-                    <button
-                      onClick={() => removeMessage(idx)}
-                      title="Remove message"
+            {templates.map((tpl, idx) => (
+              <div
+                key={idx}
+                className="card"
+                style={{
+                  padding: 20,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                  border: tpl.active ? '1.5px solid #E1306C' : '1px solid var(--glass-brd)',
+                  background: tpl.active ? 'rgba(225,48,108,0.06)' : undefined,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div
+                      onClick={() => setActiveTemplate(idx)}
+                      role="radio"
+                      aria-checked={tpl.active}
+                      title="Set as the live message sent to new DMs"
                       style={{
-                        background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none',
-                        borderRadius: 8, width: 34, height: 34, flexShrink: 0, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 3,
+                        width: 40, height: 23, borderRadius: 20, cursor: 'pointer', flexShrink: 0,
+                        background: tpl.active ? IG_GRADIENT : 'rgba(255,255,255,0.12)',
+                        position: 'relative', transition: 'background 0.15s',
                       }}
                     >
-                      <Icon name="trash" size={15} />
+                      <div style={{
+                        position: 'absolute', top: 2.5, left: tpl.active ? 19 : 2.5,
+                        width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                        transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                      }} />
+                    </div>
+                    <span style={{
+                      fontSize: 12, fontWeight: 700,
+                      color: tpl.active ? '#E1306C' : 'var(--muted)',
+                    }}>
+                      {tpl.active ? '● LIVE — sent to new DMs' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  {templates.length > 1 && (
+                    <button
+                      onClick={() => removeTemplate(idx)}
+                      title="Delete this template"
+                      style={{
+                        background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none',
+                        borderRadius: 8, width: 32, height: 32, flexShrink: 0, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <Icon name="trash" size={14} />
                     </button>
                   )}
                 </div>
-              ))}
-            </div>
+
+                <textarea
+                  rows={4}
+                  value={tpl.text}
+                  onChange={(e) => updateTemplateText(idx, e.target.value)}
+                  placeholder={'Hey there! 👋 Thanks for messaging us.\n\nUse a blank line to start a new paragraph — line breaks are kept exactly as typed.'}
+                  style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
+                />
+
+                {/* CTA Buttons for this template */}
+                <div>
+                  <label style={{ ...labelStyle, marginBottom: 8 }}>CTA Buttons (Optional)</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {tpl.ctaButtons.map((btn, ctaIdx) => (
+                      <div key={ctaIdx} style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          type="text"
+                          value={btn.name}
+                          onChange={(e) => updateCta(idx, ctaIdx, 'name', e.target.value)}
+                          placeholder="Button Name (e.g. Visit Website)"
+                          style={{ ...inputStyle, flex: 1 }}
+                        />
+                        <input
+                          type="text"
+                          value={btn.url}
+                          onChange={(e) => updateCta(idx, ctaIdx, 'url', e.target.value)}
+                          placeholder="Button URL (https://example.com)"
+                          style={{ ...inputStyle, flex: 1 }}
+                        />
+                        <button
+                          onClick={() => removeCta(idx, ctaIdx)}
+                          title="Remove button"
+                          style={{
+                            background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none',
+                            borderRadius: 8, width: 38, flexShrink: 0, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <Icon name="trash" size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {tpl.ctaButtons.length < 3 && (
+                    <button
+                      onClick={() => addCta(idx)}
+                      style={{
+                        marginTop: 8, background: 'rgba(91,124,250,0.12)', color: '#7E97FF',
+                        border: '1px dashed rgba(91,124,250,0.4)', borderRadius: 8, padding: '7px 12px',
+                        fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex',
+                        alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <Icon name="plus" size={13} /> Add CTA Button
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+
             <button
-              onClick={addMessage}
+              onClick={addTemplate}
               style={{
-                marginTop: 10, background: 'rgba(91,124,250,0.12)', color: '#7E97FF',
-                border: '1px dashed rgba(91,124,250,0.4)', borderRadius: 8, padding: '8px 14px',
-                fontSize: 12.5, fontWeight: 700, cursor: 'pointer', display: 'flex',
-                alignItems: 'center', gap: 6,
+                background: 'rgba(91,124,250,0.12)', color: '#7E97FF',
+                border: '1px dashed rgba(91,124,250,0.4)', borderRadius: 10, padding: '11px 16px',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >
-              <Icon name="plus" size={14} /> Add Message
+              <Icon name="plus" size={15} /> Add Message
             </button>
-          </div>
-
-          {/* Delay */}
-          <div>
-            <label style={labelStyle}>Delay (Optional)</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="number"
-                min="0"
-                value={delaySeconds}
-                onChange={(e) => setDelaySeconds(e.target.value)}
-                placeholder="0"
-                style={{ ...inputStyle, width: 120 }}
-              />
-              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>seconds before sending the reply</span>
-            </div>
-          </div>
-
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
-
-          {/* CTA Buttons */}
-          <div>
-            <label style={labelStyle}>CTA Buttons (Optional)</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {ctaButtons.map((btn, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    type="text"
-                    value={btn.name}
-                    onChange={(e) => updateCta(idx, 'name', e.target.value)}
-                    placeholder="Button Name (e.g. Visit Website)"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                  <input
-                    type="text"
-                    value={btn.url}
-                    onChange={(e) => updateCta(idx, 'url', e.target.value)}
-                    placeholder="Button URL (https://example.com)"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                  <button
-                    onClick={() => removeCta(idx)}
-                    title="Remove button"
-                    style={{
-                      background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none',
-                      borderRadius: 8, width: 38, flexShrink: 0, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    <Icon name="trash" size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            {ctaButtons.length < 3 && (
-              <button
-                onClick={addCta}
-                style={{
-                  marginTop: 10, background: 'rgba(91,124,250,0.12)', color: '#7E97FF',
-                  border: '1px dashed rgba(91,124,250,0.4)', borderRadius: 8, padding: '8px 14px',
-                  fontSize: 12.5, fontWeight: 700, cursor: 'pointer', display: 'flex',
-                  alignItems: 'center', gap: 6,
-                }}
-              >
-                <Icon name="plus" size={14} /> Add CTA Button
-              </button>
-            )}
           </div>
 
           <button
@@ -298,7 +367,6 @@ export default function AutoReply() {
               cursor: 'pointer',
               boxShadow: '0 4px 16px rgba(225,48,108,0.3)',
               opacity: saving ? 0.7 : 1,
-              marginTop: 4,
             }}
           >
             {saving ? 'Saving...' : 'Save Changes'}
@@ -307,16 +375,16 @@ export default function AutoReply() {
 
         {/* ── Right: Instagram Chat Preview ── */}
         <div style={{ position: 'sticky', top: 84, display: 'flex', justifyContent: 'center' }}>
-          <PhonePreview messages={messages} ctaButtons={ctaButtons} />
+          <PhonePreview template={activeTemplate} />
         </div>
       </div>
     </div>
   );
 }
 
-function PhonePreview({ messages, ctaButtons }) {
-  const visibleMessages = messages.filter((m) => m.trim());
-  const visibleCtas = ctaButtons.filter((b) => b.name?.trim());
+function PhonePreview({ template }) {
+  const text = (template?.text || '').trim();
+  const ctaButtons = (template?.ctaButtons || []).filter((b) => b.name?.trim());
 
   return (
     <div style={{
@@ -367,36 +435,34 @@ function PhonePreview({ messages, ctaButtons }) {
             </div>
           </div>
 
-          {/* Auto-reply messages */}
-          {visibleMessages.length === 0 ? (
+          {/* Auto-reply: text + CTA buttons merged into one card */}
+          {!text ? (
             <div style={{ alignSelf: 'flex-start', color: '#8E8E93', fontSize: 12.5, fontStyle: 'italic', padding: '6px 4px' }}>
               Type a welcome message to preview it here...
             </div>
           ) : (
-            visibleMessages.map((msg, idx) => (
-              <div key={idx} style={{ alignSelf: 'flex-start', maxWidth: '78%' }}>
-                <div style={{
-                  background: '#262626', color: '#fff', padding: '8px 14px',
-                  borderRadius: '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.4,
-                }}>
-                  {msg}
-                </div>
+            <div style={{
+              alignSelf: 'flex-start', maxWidth: '82%', background: '#262626',
+              borderRadius: 18, padding: 16, display: 'flex', flexDirection: 'column', gap: 14,
+            }}>
+              <div style={{
+                color: '#fff', fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+              }}>
+                {text}
               </div>
-            ))
-          )}
 
-          {/* CTA buttons */}
-          {visibleCtas.length > 0 && (
-            <div style={{ alignSelf: 'flex-start', maxWidth: '78%', display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
-              {visibleCtas.map((btn, idx) => (
-                <div key={idx} style={{
-                  background: '#262626', color: '#5B9BFF', padding: '10px 14px',
-                  borderRadius: 14, fontSize: 13, fontWeight: 600, textAlign: 'center',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                }}>
-                  {btn.name || 'Button'}
+              {ctaButtons.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {ctaButtons.map((btn, idx) => (
+                    <div key={idx} style={{
+                      background: 'rgba(255,255,255,0.08)', color: '#5B9BFF', padding: '10px 14px',
+                      borderRadius: 12, fontSize: 13, fontWeight: 600, textAlign: 'center',
+                    }}>
+                      {btn.name || 'Button'}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

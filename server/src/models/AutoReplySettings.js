@@ -5,6 +5,14 @@ const ctaButtonSchema = new mongoose.Schema({
   url: { type: String, required: true },
 }, { _id: false });
 
+const templateSchema = new mongoose.Schema({
+  text: { type: String, required: true },
+  ctaButtons: { type: [ctaButtonSchema], default: [] },
+  // Exactly one template should be active at a time — that's the one sent
+  // to new DMs. Enforced in the controller on save.
+  active: { type: Boolean, default: false },
+}, { _id: true });
+
 const autoReplySettingsSchema = new mongoose.Schema({
   // Keyed by the authenticated user's stable Mongo ID rather than the
   // free-text/renameable workspace display name, so settings never get
@@ -19,17 +27,17 @@ const autoReplySettingsSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
-  messages: {
-    type: [String],
-    default: ['Hello! 👋 Thanks for messaging us. How can we help you today?'],
-  },
   delaySeconds: {
     type: Number,
     default: 0,
   },
-  ctaButtons: {
-    type: [ctaButtonSchema],
-    default: [],
+  templates: {
+    type: [templateSchema],
+    default: () => ([{
+      text: 'Hello! 👋 Thanks for messaging us.\nHow can we help you today?',
+      ctaButtons: [],
+      active: true,
+    }]),
   },
 }, {
   timestamps: true,

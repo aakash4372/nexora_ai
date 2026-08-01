@@ -243,13 +243,41 @@ export const instagramController = {
   /**
    * PUT /api/instagram/auto-reply-settings
    * Creates or updates the authenticated user's DM auto-reply configuration.
+   * `templates` is a list of alternative welcome-message + CTA-button
+   * combinations; exactly one is `active` at a time — that's the one sent
+   * to new DMs.
    */
   async saveAutoReplySettings(req, res) {
-    const { enabled, messages, delaySeconds, ctaButtons } = req.body;
+    const { enabled, delaySeconds, templates } = req.body;
 
-    if (!Array.isArray(messages) || messages.filter((m) => m && m.trim()).length === 0) {
-      return res.status(400).json({ success: false, message: 'At least one welcome message is required.' });
+    if (!Array.isArray(templates) || templates.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one message template is required.' });
     }
+
+    const cleanTemplates = templates
+      .filter((t) => t?.text && t.text.trim())
+      .map((t) => ({
+        text: t.text.trim(),
+        ctaButtons: Array.isArray(t.ctaButtons) ? t.ctaButtons.filter((b) => b?.name && b?.url).slice(0, 3) : [],
+        active: !!t.active,
+      }));
+
+    if (cleanTemplates.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one message template is required.' });
+    }
+
+    // Enforce a single active template — if the client sent more than one
+    // (or none), keep only the first marked active, falling back to the
+    // first template overall.
+    let activeAssigned = false;
+    for (const t of cleanTemplates) {
+      if (t.active && !activeAssigned) {
+        activeAssigned = true;
+      } else {
+        t.active = false;
+      }
+    }
+    if (!activeAssigned) cleanTemplates[0].active = true;
 
     try {
       const settings = await AutoReplySettings.findOneAndUpdate(
@@ -257,9 +285,8 @@ export const instagramController = {
         {
           userId: req.userId,
           enabled: enabled !== false,
-          messages: messages.filter((m) => m && m.trim()),
           delaySeconds: Number(delaySeconds) || 0,
-          ctaButtons: Array.isArray(ctaButtons) ? ctaButtons.filter((b) => b?.name && b?.url) : [],
+          templates: cleanTemplates,
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
@@ -328,10 +355,11 @@ export const instagramController = {
 
       const accessToken = conn.accessToken;
       const settings = await AutoReplySettings.findOne({ userId: conn.userId });
-      console.log(`🔎 Connection userId="${conn.userId}" | Settings found: ${!!settings} | enabled: ${settings?.enabled} | messages: ${settings?.messages?.length ?? 0}`);
+      const activeTemplate = settings?.templates?.find((t) => t.active);
+      console.log(`🔎 Connection userId="${conn.userId}" | Settings found: ${!!settings} | enabled: ${settings?.enabled} | active template: ${!!activeTemplate}`);
 
-      if (!settings || !settings.enabled || settings.messages.length === 0) {
-        console.warn(`⚠️ Skipping DM reply — no enabled AutoReplySettings for userId "${conn.userId}".`);
+      if (!settings || !settings.enabled || !activeTemplate) {
+        console.warn(`⚠️ Skipping DM reply — no enabled/active AutoReplySettings template for userId "${conn.userId}".`);
         continue;
       }
 
@@ -374,12 +402,10 @@ export const instagramController = {
           await new Promise((resolve) => setTimeout(resolve, settings.delaySeconds * 1000));
         }
 
-        for (const message of settings.messages) {
-          await instagramService.sendDirectMessage(igBusinessId, dm.senderId, message, accessToken);
-        }
+        await instagramService.sendDirectMessage(igBusinessId, dm.senderId, activeTemplate.text, accessToken);
 
-        if (settings.ctaButtons.length > 0) {
-          await instagramService.sendButtonMessage(igBusinessId, dm.senderId, settings.ctaButtons, accessToken);
+        if (activeTemplate.ctaButtons.length > 0) {
+          await instagramService.sendButtonMessage(igBusinessId, dm.senderId, activeTemplate.ctaButtons, accessToken);
         }
       }
     }
