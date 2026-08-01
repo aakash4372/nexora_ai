@@ -358,7 +358,7 @@ export const instagramController = {
                     await rule.save();
 
                     if (commenterId && rule.autoDmMessage) {
-                      await instagramService.sendDirectMessage(igBusinessId, commenterId, rule.autoDmMessage, accessToken);
+                      await instagramService.sendDirectMessage(igBusinessId, commenterId, rule.autoDmMessage, accessToken, commentValue?.id);
                     }
                     if (commentValue?.id && rule.publicCommentReply) {
                       await instagramService.replyToComment(commentValue.id, rule.publicCommentReply, accessToken);

@@ -319,40 +319,58 @@ export const instagramService = {
   /**
    * Sends an automated Direct Message on Instagram.
    */
-  async sendDirectMessage(igBusinessId, recipientId, messageText, accessToken) {
-    console.log(`🤖 Triggering Auto DM to ${recipientId}: "${messageText}"`);
+  async sendDirectMessage(igBusinessId, recipientId, messageText, accessToken, commentId) {
+    console.log(`🤖 Triggering Auto DM to ${recipientId || commentId}: "${messageText}"`);
 
-    if (!recipientId || !messageText) return false;
+    if ((!recipientId && !commentId) || !messageText) return false;
 
-    // 1. Try Meta Facebook Graph API messaging
     if (accessToken && igBusinessId) {
-      try {
-        const res = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, {
-          recipient: { id: recipientId },
-          message: { text: messageText }
-        }, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        console.log(`✅ Live Instagram DM delivered successfully to ${recipientId}:`, res.data);
-        return true;
-      } catch (err) {
-        console.warn("Primary Meta Graph DM send notice:", err.response?.data || err.message);
+      // 1. Meta Private Reply API via comment_id (for post/reel comment triggers)
+      if (commentId) {
+        try {
+          const res = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, {
+            recipient: { comment_id: commentId },
+            message: { text: messageText }
+          }, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          console.log(`✅ Private Reply DM sent via comment_id ${commentId}:`, res.data);
+          return true;
+        } catch (err) {
+          console.warn("Private Reply DM via comment_id notice:", err.response?.data || err.message);
+        }
       }
 
-      // 2. Fallback direct Instagram Graph API /me/messages
-      try {
-        const res2 = await axios.post(`${INSTAGRAM_GRAPH_URL}/me/messages`, {
-          recipient: { id: recipientId },
-          message: { text: messageText },
-          access_token: accessToken
-        });
-        console.log(`✅ Live Instagram DM delivered via Instagram Graph API:`, res2.data);
-        return true;
-      } catch (err2) {
-        console.warn("Fallback Instagram Graph DM send notice:", err2.response?.data || err2.message);
+      // 2. Direct Meta Graph API message via recipient ID (for Inbox DMs)
+      if (recipientId) {
+        try {
+          const res = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, {
+            recipient: { id: recipientId },
+            message: { text: messageText }
+          }, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          console.log(`✅ Live Instagram DM delivered successfully to ${recipientId}:`, res.data);
+          return true;
+        } catch (err) {
+          console.warn("Primary Meta Graph DM send notice:", err.response?.data || err.message);
+        }
+
+        // 3. Fallback Instagram Graph API /me/messages
+        try {
+          const res2 = await axios.post(`${INSTAGRAM_GRAPH_URL}/me/messages`, {
+            recipient: { id: recipientId },
+            message: { text: messageText },
+            access_token: accessToken
+          });
+          console.log(`✅ Live Instagram DM delivered via Instagram Graph API:`, res2.data);
+          return true;
+        } catch (err2) {
+          console.warn("Fallback Instagram Graph DM send notice:", err2.response?.data || err2.message);
+        }
       }
     } else {
-      console.log(`ℹ️ Demo/Local Mode: Auto DM trigger logged for ${recipientId}`);
+      console.log(`ℹ️ Demo/Local Mode: Auto DM trigger logged for ${recipientId || commentId}`);
     }
     return true;
   },
