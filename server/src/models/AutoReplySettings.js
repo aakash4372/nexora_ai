@@ -6,14 +6,14 @@ const ctaButtonSchema = new mongoose.Schema({
 }, { _id: false });
 
 const autoReplySettingsSchema = new mongoose.Schema({
-  workspaceId: {
-    type: String,
-    required: true,
-    unique: true,
-  },
+  // Keyed by the authenticated user's stable Mongo ID rather than the
+  // free-text/renameable workspace display name, so settings never get
+  // orphaned by a workspace rename or account-switch on the client.
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+    required: true,
+    unique: true,
   },
   enabled: {
     type: Boolean,

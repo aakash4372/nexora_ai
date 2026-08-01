@@ -43,7 +43,7 @@ export default function AutoReply() {
     (async () => {
       setLoading(true);
       try {
-        const res = await instagramAPI.getAutoReplySettings(workspaceName);
+        const res = await instagramAPI.getAutoReplySettings();
         if (!cancelled && res.data.success) {
           const s = res.data.data;
           setEnabled(s.enabled !== false);
@@ -91,7 +91,6 @@ export default function AutoReply() {
     setSaving(true);
     try {
       const res = await instagramAPI.saveAutoReplySettings({
-        workspaceId: workspaceName,
         enabled,
         messages: cleanMessages,
         delaySeconds: Number(delaySeconds) || 0,

@@ -97,7 +97,8 @@ export const instagramAPI = {
   connect: (workspaceId) => api.get('/api/instagram/connect', { params: { workspaceId } }),
   disconnect: (workspaceId) => api.post('/api/instagram/disconnect', { workspaceId }),
   getMedia: (workspaceId) => api.get('/api/instagram/media', { params: { workspaceId } }),
-  getAutoReplySettings: (workspaceId) => api.get('/api/instagram/auto-reply-settings', { params: { workspaceId } }),
+  // Keyed server-side by the authenticated user (JWT), not workspace name.
+  getAutoReplySettings: () => api.get('/api/instagram/auto-reply-settings'),
   saveAutoReplySettings: (data) => api.put('/api/instagram/auto-reply-settings', data),
 };
 

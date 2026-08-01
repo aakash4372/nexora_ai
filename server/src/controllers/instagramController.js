@@ -223,19 +223,16 @@ export const instagramController = {
 
   /**
    * GET /api/instagram/auto-reply-settings
-   * Fetches the workspace's DM auto-reply configuration (welcome messages,
-   * optional delay, CTA buttons). Returns schema defaults if none saved yet.
+   * Fetches the authenticated user's DM auto-reply configuration (welcome
+   * messages, optional delay, CTA buttons). Returns schema defaults if none
+   * saved yet. Keyed by req.userId (stable), not the client-supplied
+   * workspaceId (a renameable display string).
    */
   async getAutoReplySettings(req, res) {
-    const { workspaceId } = req.query;
-    if (!workspaceId) {
-      return res.status(400).json({ success: false, message: 'workspaceId is required.' });
-    }
-
     try {
-      let settings = await AutoReplySettings.findOne({ workspaceId });
+      let settings = await AutoReplySettings.findOne({ userId: req.userId });
       if (!settings) {
-        settings = new AutoReplySettings({ workspaceId, userId: req.userId });
+        settings = new AutoReplySettings({ userId: req.userId });
       }
       res.json({ success: true, data: settings });
     } catch (error) {
@@ -245,23 +242,19 @@ export const instagramController = {
 
   /**
    * PUT /api/instagram/auto-reply-settings
-   * Creates or updates the workspace's DM auto-reply configuration.
+   * Creates or updates the authenticated user's DM auto-reply configuration.
    */
   async saveAutoReplySettings(req, res) {
-    const { workspaceId, enabled, messages, delaySeconds, ctaButtons } = req.body;
+    const { enabled, messages, delaySeconds, ctaButtons } = req.body;
 
-    if (!workspaceId) {
-      return res.status(400).json({ success: false, message: 'workspaceId is required.' });
-    }
     if (!Array.isArray(messages) || messages.filter((m) => m && m.trim()).length === 0) {
       return res.status(400).json({ success: false, message: 'At least one welcome message is required.' });
     }
 
     try {
       const settings = await AutoReplySettings.findOneAndUpdate(
-        { workspaceId },
+        { userId: req.userId },
         {
-          workspaceId,
           userId: req.userId,
           enabled: enabled !== false,
           messages: messages.filter((m) => m && m.trim()),
@@ -334,11 +327,11 @@ export const instagramController = {
       }
 
       const accessToken = conn.accessToken;
-      const settings = await AutoReplySettings.findOne({ workspaceId: conn.workspaceId });
-      console.log(`🔎 Connection workspaceId="${conn.workspaceId}" | Settings found: ${!!settings} | enabled: ${settings?.enabled} | messages: ${settings?.messages?.length ?? 0}`);
+      const settings = await AutoReplySettings.findOne({ userId: conn.userId });
+      console.log(`🔎 Connection userId="${conn.userId}" | Settings found: ${!!settings} | enabled: ${settings?.enabled} | messages: ${settings?.messages?.length ?? 0}`);
 
       if (!settings || !settings.enabled || settings.messages.length === 0) {
-        console.warn(`⚠️ Skipping DM reply — no enabled AutoReplySettings for workspaceId "${conn.workspaceId}".`);
+        console.warn(`⚠️ Skipping DM reply — no enabled AutoReplySettings for userId "${conn.userId}".`);
         continue;
       }
 
