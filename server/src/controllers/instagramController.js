@@ -322,6 +322,17 @@ export const instagramController = {
         for (const item of entry) {
           const igBusinessId = item.id;
 
+          // Retrieve active connection & access token for this IG business ID
+          const conn = await InstagramConnection.findOne({
+            $or: [
+              { instagramBusinessId: igBusinessId },
+              { instagramUserId: igBusinessId },
+              { connected: true }
+            ]
+          }).sort({ updatedAt: -1 });
+
+          const accessToken = conn ? conn.accessToken : null;
+
           // Process Instagram Comments & Messages from item.changes
           if (item.changes) {
             for (const changeEvent of item.changes) {
@@ -347,10 +358,10 @@ export const instagramController = {
                     await rule.save();
 
                     if (commenterId && rule.autoDmMessage) {
-                      await instagramService.sendDirectMessage(igBusinessId, commenterId, rule.autoDmMessage);
+                      await instagramService.sendDirectMessage(igBusinessId, commenterId, rule.autoDmMessage, accessToken);
                     }
                     if (commentValue?.id && rule.publicCommentReply) {
-                      await instagramService.replyToComment(commentValue.id, rule.publicCommentReply);
+                      await instagramService.replyToComment(commentValue.id, rule.publicCommentReply, accessToken);
                     }
                   }
                 }
@@ -374,7 +385,7 @@ export const instagramController = {
                     rule.runs += 1;
                     await rule.save();
 
-                    await instagramService.sendDirectMessage(igBusinessId, senderId, rule.autoDmMessage);
+                    await instagramService.sendDirectMessage(igBusinessId, senderId, rule.autoDmMessage, accessToken);
                   }
                 }
               }
@@ -400,7 +411,7 @@ export const instagramController = {
                     rule.runs += 1;
                     await rule.save();
 
-                    await instagramService.sendDirectMessage(igBusinessId, senderId, rule.autoDmMessage);
+                    await instagramService.sendDirectMessage(igBusinessId, senderId, rule.autoDmMessage, accessToken);
                   }
                 }
               }

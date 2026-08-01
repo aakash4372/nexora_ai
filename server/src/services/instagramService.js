@@ -320,18 +320,39 @@ export const instagramService = {
    * Sends an automated Direct Message on Instagram.
    */
   async sendDirectMessage(igBusinessId, recipientId, messageText, accessToken) {
-    console.log(`🤖 Auto DM sent to ${recipientId}: "${messageText}"`);
-    try {
-      if (accessToken && igBusinessId) {
-        await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, {
+    console.log(`🤖 Triggering Auto DM to ${recipientId}: "${messageText}"`);
+
+    if (!recipientId || !messageText) return false;
+
+    // 1. Try Meta Facebook Graph API messaging
+    if (accessToken && igBusinessId) {
+      try {
+        const res = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, {
           recipient: { id: recipientId },
           message: { text: messageText }
         }, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
+        console.log(`✅ Live Instagram DM delivered successfully to ${recipientId}:`, res.data);
+        return true;
+      } catch (err) {
+        console.warn("Primary Meta Graph DM send notice:", err.response?.data || err.message);
       }
-    } catch (err) {
-      console.warn("Live IG DM sending notice:", err.response?.data || err.message);
+
+      // 2. Fallback direct Instagram Graph API /me/messages
+      try {
+        const res2 = await axios.post(`${INSTAGRAM_GRAPH_URL}/me/messages`, {
+          recipient: { id: recipientId },
+          message: { text: messageText },
+          access_token: accessToken
+        });
+        console.log(`✅ Live Instagram DM delivered via Instagram Graph API:`, res2.data);
+        return true;
+      } catch (err2) {
+        console.warn("Fallback Instagram Graph DM send notice:", err2.response?.data || err2.message);
+      }
+    } else {
+      console.log(`ℹ️ Demo/Local Mode: Auto DM trigger logged for ${recipientId}`);
     }
     return true;
   },
