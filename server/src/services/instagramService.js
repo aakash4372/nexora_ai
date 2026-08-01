@@ -332,7 +332,8 @@ export const instagramService = {
             recipient: { comment_id: commentId },
             message: { text: messageText }
           }, {
-            headers: { Authorization: `Bearer ${accessToken}` }
+            params: { access_token: accessToken },
+            headers: { 'Content-Type': 'application/json' }
           });
           console.log(`✅ Private Reply DM sent via comment_id ${commentId}:`, res.data);
           return true;
@@ -348,7 +349,8 @@ export const instagramService = {
             recipient: { id: recipientId },
             message: { text: messageText }
           }, {
-            headers: { Authorization: `Bearer ${accessToken}` }
+            params: { access_token: accessToken },
+            headers: { 'Content-Type': 'application/json' }
           });
           console.log(`✅ Live Instagram DM delivered successfully to ${recipientId}:`, res.data);
           return true;
