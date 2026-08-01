@@ -193,7 +193,7 @@ export default function InstagramIntegration() {
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#fff' }}>Connect your Instagram Business Account</h2>
             <p style={{ color: 'var(--muted)', fontSize: 14, maxWidth: 480, margin: '0 auto', lineHeight: 1.5 }}>
-              Enable automatic comment replies, direct message answering, story mention triggers, and message reactions using Meta OAuth.
+              Enable automatic direct message replies using Meta OAuth.
             </p>
           </div>
           <button

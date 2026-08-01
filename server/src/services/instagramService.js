@@ -212,7 +212,7 @@ export const instagramService = {
         const url = `${INSTAGRAM_GRAPH_URL}/${igUserId}/subscribed_apps`;
         const response = await axios.post(url, null, {
           params: {
-            subscribed_fields: 'messages,comments',
+            subscribed_fields: 'messages',
             access_token: accessToken,
           },
         });
@@ -227,7 +227,7 @@ export const instagramService = {
         const url = `${FACEBOOK_GRAPH_URL}/${facebookPageId}/subscribed_apps`;
         const response = await axios.post(
           url,
-          { subscribed_fields: ['messages', 'message_reactions'] },
+          { subscribed_fields: ['messages'] },
           { headers: { Authorization: `Bearer ${facebookPageAccessToken}` } }
         );
         return response.data.success === true;
@@ -340,19 +340,20 @@ export const instagramService = {
   /**
    * Sends an automated Direct Message on Instagram.
    */
-  async sendDirectMessage(igBusinessId, recipientId, messageText, accessToken, commentId) {
-    console.log(`🤖 Triggering Auto DM to ${recipientId || commentId}: "${messageText}"`);
+  async sendDirectMessage(igBusinessId, recipientId, messageText, accessToken) {
+    console.log(`🤖 Triggering Auto DM to ${recipientId}: "${messageText}"`);
 
-    if ((!recipientId && !commentId) || !messageText) return false;
+    if (!recipientId || !messageText) return false;
 
     if (!accessToken || !igBusinessId) {
-      console.log(`ℹ️ Demo/Local Mode: Auto DM trigger logged for ${recipientId || commentId}`);
+      console.log(`ℹ️ Demo/Local Mode: Auto DM trigger logged for ${recipientId}`);
       return false;
     }
 
+    const recipient = { id: recipientId };
+
     // 1. Instagram Graph API (correct endpoint/token pairing for accounts
     //    connected via direct Instagram Business Login).
-    const recipient = commentId ? { comment_id: commentId } : { id: recipientId };
     try {
       const res = await axios.post(`${INSTAGRAM_GRAPH_URL}/${igBusinessId}/messages`, {
         recipient,
@@ -361,7 +362,7 @@ export const instagramService = {
         params: { access_token: accessToken },
         headers: { 'Content-Type': 'application/json' }
       });
-      console.log(`✅ Live Instagram DM delivered to ${recipientId || commentId}:`, res.data);
+      console.log(`✅ Live Instagram DM delivered to ${recipientId}:`, res.data);
       return true;
     } catch (err) {
       console.warn("Instagram Graph API DM send failed:", err.response?.data || err.message);
@@ -379,28 +380,58 @@ export const instagramService = {
       console.log(`✅ Live Instagram DM delivered via Meta Graph API fallback:`, res2.data);
       return true;
     } catch (err2) {
-      console.error(`❌ Auto DM to ${recipientId || commentId} failed on both endpoints:`, err2.response?.data || err2.message);
+      console.error(`❌ Auto DM to ${recipientId} failed on both endpoints:`, err2.response?.data || err2.message);
       return false;
     }
   },
 
   /**
-   * Posts an optional public reply to a comment.
+   * Sends a DM containing up to 3 call-to-action web-link buttons
+   * (Instagram/Messenger "button template" attachment).
    */
-  async replyToComment(commentId, replyText, accessToken) {
-    console.log(`💬 Auto comment reply to ${commentId}: "${replyText}"`);
+  async sendButtonMessage(igBusinessId, recipientId, ctaButtons, accessToken) {
+    if (!recipientId || !accessToken || !igBusinessId || !ctaButtons?.length) return false;
+
+    const payload = {
+      recipient: { id: recipientId },
+      message: {
+        attachment: {
+          type: 'template',
+          payload: {
+            template_type: 'button',
+            text: '👇',
+            buttons: ctaButtons.slice(0, 3).map((b) => ({
+              type: 'web_url',
+              url: b.url,
+              title: b.name,
+            })),
+          },
+        },
+      },
+    };
+
     try {
-      if (accessToken && commentId) {
-        await axios.post(`${FACEBOOK_GRAPH_URL}/${commentId}/replies`, {
-          message: replyText
-        }, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-      }
+      const res = await axios.post(`${INSTAGRAM_GRAPH_URL}/${igBusinessId}/messages`, payload, {
+        params: { access_token: accessToken },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log(`✅ CTA button message delivered to ${recipientId}:`, res.data);
+      return true;
     } catch (err) {
-      console.warn("Live comment reply notice:", err.response?.data || err.message);
+      console.warn("Instagram Graph API CTA button send failed:", err.response?.data || err.message);
     }
-    return true;
+
+    try {
+      const res2 = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, payload, {
+        params: { access_token: accessToken },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log(`✅ CTA button message delivered via Meta Graph API fallback:`, res2.data);
+      return true;
+    } catch (err2) {
+      console.error(`❌ CTA button send to ${recipientId} failed on both endpoints:`, err2.response?.data || err2.message);
+      return false;
+    }
   }
 };
 

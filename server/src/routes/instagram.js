@@ -13,10 +13,8 @@ router.get('/profile', requireAuth, instagramController.getProfile);
 
 // Media & Auto Reply Routes
 router.get('/media', requireAuth, instagramController.getMedia);
-router.get('/auto-replies', requireAuth, instagramController.getAutoReplies);
-router.post('/auto-replies', requireAuth, instagramController.createAutoReply);
-router.patch('/auto-replies/:id', requireAuth, instagramController.toggleAutoReply);
-router.delete('/auto-replies/:id', requireAuth, instagramController.deleteAutoReply);
+router.get('/auto-reply-settings', requireAuth, instagramController.getAutoReplySettings);
+router.put('/auto-reply-settings', requireAuth, instagramController.saveAutoReplySettings);
 
 // Webhook Routes (Separate from OAuth Callback)
 router.get('/webhook', instagramController.verifyWebhook);

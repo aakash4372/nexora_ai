@@ -7,15 +7,15 @@ const NAV = [
   { id: 'contacts', icon: 'contacts', label: 'Contacts' },
   { id: 'campaigns', icon: 'campaigns', label: 'Campaigns' },
   { id: 'automations', icon: 'automation', label: 'Automations' },
-  { id: 'analytics', icon: 'analytics', label: 'Analytics' },
-  { id: 'ai', icon: 'ai', label: 'AI Assist' },
+  { id: 'auto-reply', icon: 'automation', label: 'Auto Reply' },
 ];
 
 const BOTTOM_NAV = [
+  { id: 'analytics', icon: 'analytics', label: 'Analytics' },
+  { id: 'ai', icon: 'ai', label: 'AI Assist' },
   { id: 'team', icon: 'team', label: 'Team' },
   { id: 'integrations', icon: 'integrations', label: 'Integrations' },
   { id: 'instagram', icon: 'integrations', label: 'Instagram' },
-  { id: 'auto-reply', icon: 'automation', label: 'Auto Reply' },
   { id: 'api', icon: 'api', label: 'API' },
   { id: 'billing', icon: 'billing', label: 'Billing' },
   { id: 'settings', icon: 'settings', label: 'Settings' },

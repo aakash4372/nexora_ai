@@ -97,10 +97,8 @@ export const instagramAPI = {
   connect: (workspaceId) => api.get('/api/instagram/connect', { params: { workspaceId } }),
   disconnect: (workspaceId) => api.post('/api/instagram/disconnect', { workspaceId }),
   getMedia: (workspaceId) => api.get('/api/instagram/media', { params: { workspaceId } }),
-  getAutoReplies: (workspaceId) => api.get('/api/instagram/auto-replies', { params: { workspaceId } }),
-  createAutoReply: (data) => api.post('/api/instagram/auto-replies', data),
-  toggleAutoReply: (id) => api.patch(`/api/instagram/auto-replies/${id}`),
-  deleteAutoReply: (id) => api.delete(`/api/instagram/auto-replies/${id}`),
+  getAutoReplySettings: (workspaceId) => api.get('/api/instagram/auto-reply-settings', { params: { workspaceId } }),
+  saveAutoReplySettings: (data) => api.put('/api/instagram/auto-reply-settings', data),
 };
 
 export default api;

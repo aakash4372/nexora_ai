@@ -1,6 +1,6 @@
 import { instagramService } from '../services/instagramService.js';
 import InstagramConnection from '../models/InstagramConnection.js';
-import AutoReplyRule from '../models/AutoReplyRule.js';
+import AutoReplySettings from '../models/AutoReplySettings.js';
 
 export const instagramController = {
   /**
@@ -222,78 +222,58 @@ export const instagramController = {
   },
 
   /**
-   * GET /api/instagram/auto-replies
+   * GET /api/instagram/auto-reply-settings
+   * Fetches the workspace's DM auto-reply configuration (welcome messages,
+   * optional delay, CTA buttons). Returns schema defaults if none saved yet.
    */
-  async getAutoReplies(req, res) {
+  async getAutoReplySettings(req, res) {
     const { workspaceId } = req.query;
+    if (!workspaceId) {
+      return res.status(400).json({ success: false, message: 'workspaceId is required.' });
+    }
+
     try {
-      const filter = workspaceId ? { workspaceId } : {};
-      const rules = await AutoReplyRule.find(filter).sort({ createdAt: -1 });
-      res.json({ success: true, data: rules });
+      let settings = await AutoReplySettings.findOne({ workspaceId });
+      if (!settings) {
+        settings = new AutoReplySettings({ workspaceId, userId: req.userId });
+      }
+      res.json({ success: true, data: settings });
     } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to fetch auto replies.', error: error.message });
+      res.status(500).json({ success: false, message: 'Failed to fetch auto reply settings.', error: error.message });
     }
   },
 
   /**
-   * POST /api/instagram/auto-replies
+   * PUT /api/instagram/auto-reply-settings
+   * Creates or updates the workspace's DM auto-reply configuration.
    */
-  async createAutoReply(req, res) {
-    const { workspaceId, postId, postCaption, postMediaUrl, mediaType, permalink, triggerKeyword, autoDmMessage, publicCommentReply } = req.body;
+  async saveAutoReplySettings(req, res) {
+    const { workspaceId, enabled, messages, delaySeconds, ctaButtons } = req.body;
 
-    if (!workspaceId || !postId || !autoDmMessage) {
-      return res.status(400).json({ success: false, message: 'workspaceId, postId, and autoDmMessage are required.' });
+    if (!workspaceId) {
+      return res.status(400).json({ success: false, message: 'workspaceId is required.' });
+    }
+    if (!Array.isArray(messages) || messages.filter((m) => m && m.trim()).length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one welcome message is required.' });
     }
 
     try {
-      const rule = await AutoReplyRule.create({
-        workspaceId,
-        userId: req.userId,
-        postId,
-        postCaption: postCaption || '',
-        postMediaUrl: postMediaUrl || '',
-        mediaType: mediaType || 'IMAGE',
-        permalink: permalink || '',
-        triggerKeyword: triggerKeyword || '*',
-        autoDmMessage,
-        publicCommentReply: publicCommentReply || '',
-        status: 'Live',
-        runs: 0
-      });
+      const settings = await AutoReplySettings.findOneAndUpdate(
+        { workspaceId },
+        {
+          workspaceId,
+          userId: req.userId,
+          enabled: enabled !== false,
+          messages: messages.filter((m) => m && m.trim()),
+          delaySeconds: Number(delaySeconds) || 0,
+          ctaButtons: Array.isArray(ctaButtons) ? ctaButtons.filter((b) => b?.name && b?.url) : [],
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
-      res.status(201).json({ success: true, data: rule, message: 'Auto reply rule created successfully!' });
+      res.json({ success: true, data: settings, message: 'Auto reply settings saved successfully!' });
     } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to create auto reply rule.', error: error.message });
-    }
-  },
-
-  /**
-   * PATCH /api/instagram/auto-replies/:id
-   */
-  async toggleAutoReply(req, res) {
-    const { id } = req.params;
-    try {
-      const rule = await AutoReplyRule.findById(id);
-      if (!rule) return res.status(404).json({ success: false, message: 'Rule not found.' });
-
-      rule.status = rule.status === 'Live' ? 'Paused' : 'Live';
-      await rule.save();
-      res.json({ success: true, data: rule });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to toggle rule.', error: error.message });
-    }
-  },
-
-  /**
-   * DELETE /api/instagram/auto-replies/:id
-   */
-  async deleteAutoReply(req, res) {
-    const { id } = req.params;
-    try {
-      await AutoReplyRule.findByIdAndDelete(id);
-      res.json({ success: true, message: 'Auto reply rule deleted successfully.' });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to delete rule.', error: error.message });
+      res.status(500).json({ success: false, message: 'Failed to save auto reply settings.', error: error.message });
     }
   },
 
@@ -323,116 +303,84 @@ export const instagramController = {
 
   /**
    * POST /api/instagram/webhook
-   * Handles incoming Instagram Webhook Events (messages, comments, reactions).
+   * Handles incoming Instagram Direct Message webhook events only.
+   * Comment/mention events are intentionally ignored — this app auto-replies
+   * to DMs exclusively.
    */
   async handleWebhookEvent(req, res) {
     console.log('📩 Incoming Instagram webhook event on /api/instagram/webhook:', JSON.stringify(req.body, null, 2));
 
     const { object, entry } = req.body;
 
-    if (object === 'instagram') {
-      if (entry && Array.isArray(entry)) {
-        for (const item of entry) {
-          const igBusinessId = item.id;
+    if (object !== 'instagram' || !Array.isArray(entry)) {
+      return res.status(200).send('EVENT_RECEIVED');
+    }
 
-          // Retrieve active connection & access token for this IG business ID
-          const conn = await InstagramConnection.findOne({
-            $or: [
-              { instagramBusinessId: igBusinessId },
-              { instagramUserId: igBusinessId },
-              { connected: true }
-            ]
-          }).sort({ updatedAt: -1 });
+    for (const item of entry) {
+      const igBusinessId = item.id;
 
-          const accessToken = conn ? conn.accessToken : null;
+      // Retrieve active connection & access token for this IG business ID
+      const conn = await InstagramConnection.findOne({
+        $or: [
+          { instagramBusinessId: igBusinessId },
+          { instagramUserId: igBusinessId },
+          { connected: true }
+        ]
+      }).sort({ updatedAt: -1 });
 
-          // Process Instagram Comments & Messages from item.changes
-          if (item.changes) {
-            for (const changeEvent of item.changes) {
-              // 1. Comments
-              if (changeEvent.field === 'comments' || changeEvent.field === 'live_comments') {
-                const commentValue = changeEvent.value;
-                const commentText = (commentValue?.text || '').toUpperCase();
-                const mediaId = commentValue?.media?.id || commentValue?.id;
-                const commenterId = commentValue?.from?.id;
+      if (!conn) continue;
 
-                console.log(`💬 New Instagram comment on media ${mediaId}: "${commentValue?.text}" by ${commenterId}`);
+      const accessToken = conn.accessToken;
+      const settings = await AutoReplySettings.findOne({ workspaceId: conn.workspaceId });
+      if (!settings || !settings.enabled || settings.messages.length === 0) continue;
 
-                const rules = await AutoReplyRule.find({ status: 'Live' });
-                for (const rule of rules) {
-                  const keywordMatch = rule.triggerKeyword === '*' ||
-                    rule.triggerKeyword.toUpperCase().split(',').some(k => commentText.includes(k.trim()));
+      // Collect DM events from both the `changes` (messages field) and
+      // legacy `messaging` array shapes Meta may send.
+      const dmEvents = [];
 
-                  const postMatch = !rule.postId || rule.postId === 'ALL' || rule.postId === mediaId;
-
-                  if (keywordMatch && postMatch) {
-                    console.log(`🎯 Auto reply rule matched! Rule ID: ${rule._id}`);
-                    rule.runs += 1;
-                    await rule.save();
-
-                    if (commenterId && rule.autoDmMessage) {
-                      await instagramService.sendDirectMessage(igBusinessId, commenterId, rule.autoDmMessage, accessToken, commentValue?.id);
-                    }
-                    if (commentValue?.id && rule.publicCommentReply) {
-                      await instagramService.replyToComment(commentValue.id, rule.publicCommentReply, accessToken);
-                    }
-                  }
-                }
-              }
-
-              // 2. Direct Messages via item.changes
-              if (changeEvent.field === 'messages' || changeEvent.field === 'messaging') {
-                const dmValue = changeEvent.value;
-                const dmText = (dmValue?.message?.text || dmValue?.text || '').toUpperCase();
-                const senderId = dmValue?.sender?.id || dmValue?.from?.id;
-
-                console.log(`📩 New Instagram DM via changes field: "${dmText}" from ${senderId}`);
-
-                const rules = await AutoReplyRule.find({ status: 'Live' });
-                for (const rule of rules) {
-                  const keywordMatch = rule.triggerKeyword === '*' ||
-                    rule.triggerKeyword.toUpperCase().split(',').some(k => dmText.includes(k.trim()));
-
-                  if (keywordMatch) {
-                    console.log(`🎯 Auto DM keyword matched for DM from ${senderId}! Rule ID: ${rule._id}`);
-                    rule.runs += 1;
-                    await rule.save();
-
-                    await instagramService.sendDirectMessage(igBusinessId, senderId, rule.autoDmMessage, accessToken);
-                  }
-                }
-              }
-            }
-          }
-
-          // Process direct message triggers via item.messaging
-          if (item.messaging) {
-            for (const messagingEvent of item.messaging) {
-              if (messagingEvent.message && messagingEvent.sender) {
-                const text = (messagingEvent.message.text || '').toUpperCase();
-                const senderId = messagingEvent.sender.id;
-
-                console.log(`📩 New Instagram DM via messaging field: "${text}" from ${senderId}`);
-
-                const rules = await AutoReplyRule.find({ status: 'Live' });
-                for (const rule of rules) {
-                  const keywordMatch = rule.triggerKeyword === '*' ||
-                    rule.triggerKeyword.toUpperCase().split(',').some(k => text.includes(k.trim()));
-
-                  if (keywordMatch) {
-                    console.log(`🎯 Auto DM keyword matched for DM from ${senderId}! Rule ID: ${rule._id}`);
-                    rule.runs += 1;
-                    await rule.save();
-
-                    await instagramService.sendDirectMessage(igBusinessId, senderId, rule.autoDmMessage, accessToken);
-                  }
-                }
-              }
-            }
+      if (Array.isArray(item.changes)) {
+        for (const changeEvent of item.changes) {
+          if (changeEvent.field === 'messages' || changeEvent.field === 'messaging') {
+            const dmValue = changeEvent.value;
+            dmEvents.push({
+              senderId: dmValue?.sender?.id || dmValue?.from?.id,
+              text: dmValue?.message?.text || dmValue?.text || '',
+              isEcho: !!dmValue?.message?.is_echo,
+            });
           }
         }
       }
-      return res.status(200).send('EVENT_RECEIVED');
+
+      if (Array.isArray(item.messaging)) {
+        for (const messagingEvent of item.messaging) {
+          if (messagingEvent.message && messagingEvent.sender) {
+            dmEvents.push({
+              senderId: messagingEvent.sender.id,
+              text: messagingEvent.message.text || '',
+              isEcho: !!messagingEvent.message.is_echo,
+            });
+          }
+        }
+      }
+
+      for (const dm of dmEvents) {
+        // Skip echoes of our own outgoing messages so the bot never replies to itself.
+        if (dm.isEcho || !dm.senderId) continue;
+
+        console.log(`📩 New Instagram DM: "${dm.text}" from ${dm.senderId}`);
+
+        if (settings.delaySeconds > 0) {
+          await new Promise((resolve) => setTimeout(resolve, settings.delaySeconds * 1000));
+        }
+
+        for (const message of settings.messages) {
+          await instagramService.sendDirectMessage(igBusinessId, dm.senderId, message, accessToken);
+        }
+
+        if (settings.ctaButtons.length > 0) {
+          await instagramService.sendButtonMessage(igBusinessId, dm.senderId, settings.ctaButtons, accessToken);
+        }
+      }
     }
 
     return res.status(200).send('EVENT_RECEIVED');
