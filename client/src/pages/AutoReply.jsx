@@ -48,7 +48,7 @@ export default function AutoReply() {
       try {
         const [settingsRes, statusRes] = await Promise.all([
           instagramAPI.getAutoReplySettings(),
-          instagramAPI.getStatus(workspaceName).catch(() => null),
+          instagramAPI.getStatus().catch(() => null),
         ]);
         if (!cancelled && settingsRes.data.success) {
           const s = settingsRes.data.data;

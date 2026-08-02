@@ -93,7 +93,8 @@ export const analyticsAPI = {
 
 /* ─── Instagram ──────────────────────────────────────────── */
 export const instagramAPI = {
-  getStatus: (workspaceId) => api.get('/api/instagram/status', { params: { workspaceId } }),
+  // Keyed server-side by the authenticated user (JWT), not workspace name.
+  getStatus: () => api.get('/api/instagram/status'),
   connect: (workspaceId) => api.get('/api/instagram/connect', { params: { workspaceId } }),
   disconnect: (workspaceId) => api.post('/api/instagram/disconnect', { workspaceId }),
   // Keyed server-side by the authenticated user (JWT), not workspace name.

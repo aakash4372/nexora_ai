@@ -102,6 +102,21 @@ export default function CommentToDM() {
 
   const [mediaList, setMediaList] = useState([]);
   const [mediaLoading, setMediaLoading] = useState(false);
+  const [igProfile, setIgProfile] = useState(null);
+
+  useEffect(() => {
+    instagramAPI.getStatus()
+      .then((res) => {
+        if (res.data?.connected) {
+          setIgProfile({
+            username: res.data.connection?.instagramUsername,
+            profilePicture: res.data.connection?.profilePicture,
+          });
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchAutomations = async () => {
     setLoading(true);
@@ -338,6 +353,7 @@ export default function CommentToDM() {
         onSave={handleSave}
         saving={saving}
         editing={!!editingId}
+        igProfile={igProfile}
       />
     );
   }
@@ -466,7 +482,7 @@ export default function CommentToDM() {
 
 function BuilderView({
   form, setForm, mediaList, mediaLoading, togglePostSelection,
-  updateFinalCta, addFinalCta, removeFinalCta, onCancel, onSave, saving, editing,
+  updateFinalCta, addFinalCta, removeFinalCta, onCancel, onSave, saving, editing, igProfile,
 }) {
   const [previewTab, setPreviewTab] = useState('DM');
 
@@ -706,7 +722,7 @@ function BuilderView({
 
         {/* ── Right: big live preview ── */}
         <div className="cmt-dm-preview" style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-          <PhonePreview form={form} mediaList={mediaList} previewTab={previewTab} />
+          <PhonePreview form={form} mediaList={mediaList} previewTab={previewTab} igProfile={igProfile} />
           <div style={{ display: 'flex', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 4 }}>
             {['Post', 'Comments', 'DM'].map((tab) => (
               <div
@@ -729,59 +745,112 @@ function BuilderView({
   );
 }
 
-function PhonePreview({ form, mediaList, previewTab }) {
+function Avatar({ igProfile, size = 32 }) {
+  if (igProfile?.profilePicture) {
+    return (
+      <img
+        src={igProfile.profilePicture} alt={igProfile.username || 'Instagram'}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+      />
+    );
+  }
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', background: IG_GRADIENT, flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55} fill="none" stroke="#fff" strokeWidth="2">
+        <rect x="2" y="2" width="20" height="20" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none" />
+      </svg>
+    </div>
+  );
+}
+
+function StatusBar() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 22px 2px', color: '#fff' }}>
+      <span style={{ fontSize: 13.5, fontWeight: 700 }}>10:40</span>
+      <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 100, height: 20, borderRadius: 11, background: '#000' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <svg width="16" height="11" viewBox="0 0 16 11"><rect x="0" y="7" width="3" height="4" rx="0.6" fill="#fff" /><rect x="4.5" y="5" width="3" height="6" rx="0.6" fill="#fff" /><rect x="9" y="3" width="3" height="8" rx="0.6" fill="#fff" /></svg>
+        <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="#fff" strokeWidth="1.3"><path d="M1 4a10 10 0 0 1 13 0" /><path d="M3.5 6.5a6.5 6.5 0 0 1 8 0" /><circle cx="7.5" cy="9" r="1" fill="#fff" stroke="none" /></svg>
+        <svg width="24" height="12" viewBox="0 0 24 12"><rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="#fff" fill="none" /><rect x="2" y="2" width="17" height="8" rx="1" fill="#fff" /><rect x="21" y="4" width="2" height="4" rx="1" fill="#fff" /></svg>
+      </div>
+    </div>
+  );
+}
+
+function PhonePreview({ form, mediaList, previewTab, igProfile }) {
   const selectedMedia = mediaList.filter((m) => form.selectedPostIds.includes(m.id));
   const previewPost = selectedMedia[0] || mediaList[0] || null;
 
   return (
     <div style={{
-      width: 340, borderRadius: 40, border: '9px solid #14151c', background: '#14151c',
+      width: 340, borderRadius: 40, border: '9px solid #14151c', background: '#000',
       boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'center', background: '#14151c', padding: '7px 0 3px' }}>
-        <div style={{ width: 100, height: 20, borderRadius: 11, background: '#000' }} />
+      <div style={{ position: 'relative' }}>
+        <StatusBar />
       </div>
 
-      <div style={{ background: '#000', height: 620 }}>
-        {previewTab === 'Post' && <PostPreview post={previewPost} />}
-        {previewTab === 'Comments' && <CommentsPreview post={previewPost} form={form} />}
-        {previewTab === 'DM' && <FlowPreview form={form} />}
+      <div style={{ background: '#000', height: 596 }}>
+        {previewTab === 'Post' && <PostPreview post={previewPost} igProfile={igProfile} />}
+        {previewTab === 'Comments' && <CommentsPreview post={previewPost} form={form} igProfile={igProfile} />}
+        {previewTab === 'DM' && <FlowPreview form={form} igProfile={igProfile} />}
       </div>
     </div>
   );
 }
 
-function PostPreview({ post }) {
+function PostPreview({ post, igProfile }) {
+  const username = igProfile?.username || 'your_account';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
-        <div style={{ width: 30, height: 30, borderRadius: '50%', background: IG_GRADIENT, flexShrink: 0 }} />
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>your_account</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px' }}>
+        <Icon name="arrowLeft" size={18} style={{ color: '#8E8E93' }} />
+        <div style={{ flex: 1, textAlign: 'center', marginRight: 18 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: '#8E8E93', letterSpacing: '0.06em' }}>{username.toUpperCase()}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Posts</div>
+        </div>
       </div>
-      <div style={{ width: '100%', aspectRatio: '1', background: '#111' }}>
-        {post ? (
-          <img src={post.media_url || post.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8E8E93', fontSize: 12.5 }}>
-            Select a post to preview
+
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
+          <Avatar igProfile={igProfile} size={30} />
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{username}</div>
+          <div style={{ marginLeft: 'auto', color: '#8E8E93', fontSize: 18 }}>⋯</div>
+        </div>
+        <div style={{ width: '100%', aspectRatio: '1', background: '#111' }}>
+          {post ? (
+            <img src={post.media_url || post.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8E8E93', fontSize: 12.5, textAlign: 'center', padding: 20 }}>
+              Select a post to preview
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 14px', color: '#fff' }}>
+          <Icon name="smile" size={22} />
+          <Icon name="mail" size={20} />
+          <Icon name="send" size={20} />
+          <div style={{ marginLeft: 'auto' }}>
+            <Icon name="tag" size={20} />
+          </div>
+        </div>
+        {post?.caption && (
+          <div style={{ padding: '0 14px 16px', fontSize: 12.5, color: '#ddd', lineHeight: 1.4 }}>
+            <strong style={{ color: '#fff' }}>{username}</strong> {post.caption}
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', gap: 16, padding: '12px 14px', color: '#fff' }}>
-        <Icon name="smile" size={22} />
-        <span style={{ fontSize: 18 }}>💬</span>
-        <span style={{ fontSize: 18 }}>📤</span>
-      </div>
-      {post?.caption && (
-        <div style={{ padding: '0 14px', fontSize: 12.5, color: '#ddd', lineHeight: 1.4 }}>
-          <strong>your_account</strong> {post.caption}
-        </div>
-      )}
     </div>
   );
 }
 
-function CommentsPreview({ post, form }) {
+function CommentsPreview({ post, form, igProfile }) {
+  const username = igProfile?.username || 'your_account';
   const sampleComment = form.commentMatchType === 'KEYWORDS' && form.keywordsText.trim()
     ? form.keywordsText.split(',')[0].trim()
     : 'price 🙋';
@@ -789,41 +858,66 @@ function CommentsPreview({ post, form }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Comments</div>
+      {/* Dimmed post strip behind the sheet */}
+      <div style={{ height: 60, opacity: 0.35, overflow: 'hidden', flexShrink: 0 }}>
+        {post && <img src={post.media_url || post.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#444', flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: 12.5, color: '#fff' }}><strong>a_follower</strong> {sampleComment}</div>
-            <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 3 }}>2m</div>
+
+      <div style={{ flex: 1, background: '#141414', borderRadius: '18px 18px 0 0', marginTop: -14, display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 20px rgba(0,0,0,0.4)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 8 }}>
+          <div style={{ width: 34, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.25)' }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
+          <div style={{ width: 20 }} />
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: '#fff' }}>Comments</div>
+          <Icon name="send" size={18} style={{ color: '#fff' }} />
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#3a3a3a', flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12.5, color: '#fff' }}><strong>Username</strong> <span style={{ color: '#8E8E93', fontWeight: 400 }}>Now</span></div>
+              <div style={{ fontSize: 13, color: '#eee', marginTop: 2 }}>{sampleComment}</div>
+              <div style={{ fontSize: 11.5, color: '#8E8E93', marginTop: 4 }}>Reply</div>
+            </div>
+            <span style={{ fontSize: 13, color: '#8E8E93', flexShrink: 0 }}>♡</span>
+          </div>
+
+          {reply && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Avatar igProfile={igProfile} size={24} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12.5, color: '#5B9BFF' }}><strong>{username}</strong> <span style={{ color: '#8E8E93', fontWeight: 400 }}>Now</span></div>
+                <div style={{ fontSize: 13, color: '#5B9BFF', marginTop: 2 }}>{reply}</div>
+                <div style={{ fontSize: 11.5, color: '#8E8E93', marginTop: 4 }}>Reply</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, padding: '8px 16px', fontSize: 19 }}>
+          {['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'].map((e) => <span key={e}>{e}</span>)}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px 14px' }}>
+          <Avatar igProfile={igProfile} size={26} />
+          <div style={{ flex: 1, background: '#242424', borderRadius: 20, padding: '8px 14px', fontSize: 12.5, color: '#8E8E93' }}>
+            Add a comment for {username}...
           </div>
         </div>
-        {reply && (
-          <div style={{ display: 'flex', gap: 10, marginLeft: 30 }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', background: IG_GRADIENT, flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: 12.5, color: '#fff' }}><strong>your_account</strong> {reply}</div>
-              <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 3 }}>Just now</div>
-            </div>
-          </div>
-        )}
-        {!post && (
-          <div style={{ color: '#8E8E93', fontSize: 12, fontStyle: 'italic' }}>Sample comment — select a post to match your real content.</div>
-        )}
       </div>
     </div>
   );
 }
 
-function FlowPreview({ form }) {
+function FlowPreview({ form, igProfile }) {
   const opening = form.openingMessage.trim();
   const openingBtn = form.openingButtonName.trim() || 'Send me the link';
   const followMsg = form.followGateMessage.trim();
   const followBtn = form.followGateButtonName.trim() || "I've Followed ✅";
   const final = form.finalMessage.trim();
   const finalCtas = form.finalCtaButtons.filter((b) => b.name?.trim());
+  const username = igProfile?.username || 'Instagram';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -833,20 +927,10 @@ function FlowPreview({ form }) {
         borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
       }}>
         <Icon name="arrowLeft" size={19} style={{ color: '#fff' }} />
-        <div style={{
-          width: 34, height: 34, borderRadius: '50%', background: IG_GRADIENT,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" strokeWidth="2">
-            <rect x="2" y="2" width="20" height="20" rx="5" />
-            <circle cx="12" cy="12" r="4" />
-            <circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none" />
-          </svg>
-        </div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Instagram</div>
-          <div style={{ fontSize: 11, color: '#8E8E93' }}>Active now</div>
-        </div>
+        <Avatar igProfile={igProfile} size={32} />
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: '#fff', flex: 1 }}>{username}</div>
+        <Icon name="phone" size={17} style={{ color: '#fff' }} />
+        <Icon name="video" size={19} style={{ color: '#fff' }} />
       </div>
 
       {/* Chat body — full flow, stacked as a conversation */}

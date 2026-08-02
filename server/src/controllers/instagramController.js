@@ -220,16 +220,14 @@ export const instagramController = {
 
   /**
    * GET /api/instagram/status
-   * Fetches current connection status for workspace.
+   * Fetches the authenticated user's Instagram connection status. Keyed by
+   * req.userId (stable), not the client-supplied workspaceId — see
+   * AutoReplySettings for why that string can drift and silently orphan
+   * the lookup.
    */
   async getStatus(req, res) {
-    const { workspaceId } = req.query;
-    if (!workspaceId) {
-      return res.status(400).json({ success: false, message: 'workspaceId is required.' });
-    }
-
     try {
-      const conn = await InstagramConnection.findOne({ workspaceId, userId: req.userId });
+      const conn = await InstagramConnection.findOne({ userId: req.userId });
 
       if (!conn || !conn.connected) {
         return res.json({ success: true, connected: false });

@@ -13,7 +13,7 @@ export default function InstagramIntegration() {
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const res = await instagramAPI.getStatus(workspaceName);
+      const res = await instagramAPI.getStatus();
       if (res.data.success && res.data.connected) {
         setConnection(res.data.connection);
       } else {

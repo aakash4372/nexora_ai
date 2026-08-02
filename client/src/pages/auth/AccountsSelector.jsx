@@ -16,7 +16,7 @@ export default function AccountsSelector() {
 
   const fetchStatus = async () => {
     try {
-      const res = await instagramAPI.getStatus(workspaceName);
+      const res = await instagramAPI.getStatus();
       if (res.data.success && res.data.connected) {
         const conn = res.data.connection;
         setAccounts([
