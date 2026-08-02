@@ -423,6 +423,27 @@ export const instagramController = {
 
         console.log(`📩 New Instagram DM: "${dm.text}" from ${dm.senderId}`);
 
+        // Only auto-reply once every 24h per sender (a welcome message, not
+        // a reply-to-everything bot) — if they messaged again within the
+        // last 24h (including while a human is handling the conversation
+        // manually), skip. After 24h of silence, treat the next message as
+        // a fresh conversation and greet again.
+        const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+        const lastLog = await AutoReplyLog.findOne({ userId: conn.userId, senderId: dm.senderId });
+        if (lastLog && Date.now() - lastLog.sentAt.getTime() < COOLDOWN_MS) {
+          console.log(`⏭️ Sender ${dm.senderId} already got an auto-reply within the last 24h — skipping.`);
+          continue;
+        }
+
+        // Record the send before actually calling the Graph API so a
+        // duplicate webhook delivery for the same event (Meta retries on
+        // slow responses) can't slip past the cooldown check above.
+        await AutoReplyLog.findOneAndUpdate(
+          { userId: conn.userId, senderId: dm.senderId },
+          { sentAt: new Date() },
+          { upsert: true }
+        );
+
         if (settings.delaySeconds > 0) {
           await new Promise((resolve) => setTimeout(resolve, settings.delaySeconds * 1000));
         }
