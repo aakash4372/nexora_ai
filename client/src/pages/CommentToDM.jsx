@@ -61,7 +61,7 @@ const isValidUrl = (url) => {
 };
 
 export default function CommentToDM() {
-  const { state, showToast, openModal, closeModal } = useApp();
+  const { showToast, openModal, closeModal } = useApp();
   const [loading, setLoading] = useState(true);
   const [automations, setAutomations] = useState([]);
 
@@ -72,8 +72,6 @@ export default function CommentToDM() {
 
   const [mediaList, setMediaList] = useState([]);
   const [mediaLoading, setMediaLoading] = useState(false);
-
-  const workspaceName = state.workspace?.name || 'Default Workspace';
 
   const fetchAutomations = async () => {
     setLoading(true);
@@ -99,7 +97,7 @@ export default function CommentToDM() {
     setShowBuilder(true);
     setMediaLoading(true);
     try {
-      const res = await instagramAPI.getMedia(workspaceName);
+      const res = await instagramAPI.getMedia();
       if (res.data.success) setMediaList(res.data.media || []);
     } catch (err) {
       console.error(err);
@@ -127,7 +125,7 @@ export default function CommentToDM() {
     setShowBuilder(true);
     setMediaLoading(true);
     try {
-      const res = await instagramAPI.getMedia(workspaceName);
+      const res = await instagramAPI.getMedia();
       if (res.data.success) setMediaList(res.data.media || []);
     } catch (err) {
       console.error(err);

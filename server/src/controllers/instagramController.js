@@ -300,16 +300,16 @@ export const instagramController = {
    * Fetches published Instagram Posts & Reels for the workspace.
    */
   async getMedia(req, res) {
-    const { workspaceId } = req.query;
     try {
       let accessToken = null;
       let instagramUserId = null;
-      if (workspaceId) {
-        const conn = await InstagramConnection.findOne({ workspaceId });
-        if (conn) {
-          accessToken = conn.accessToken;
-          instagramUserId = conn.instagramBusinessId || conn.instagramUserId;
-        }
+      // Keyed by the authenticated user (stable), not the client-supplied
+      // workspaceId — see AutoReplySettings for why that string can drift
+      // and silently orphan the lookup.
+      const conn = await InstagramConnection.findOne({ userId: req.userId });
+      if (conn) {
+        accessToken = conn.accessToken;
+        instagramUserId = conn.instagramBusinessId || conn.instagramUserId;
       }
       const media = await instagramService.fetchUserMedia(accessToken, instagramUserId);
       res.json({ success: true, media });
