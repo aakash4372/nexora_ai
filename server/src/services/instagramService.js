@@ -212,7 +212,7 @@ export const instagramService = {
         const url = `${INSTAGRAM_GRAPH_URL}/${igUserId}/subscribed_apps`;
         const response = await axios.post(url, null, {
           params: {
-            subscribed_fields: 'messages',
+            subscribed_fields: 'messages,comments,messaging_postbacks',
             access_token: accessToken,
           },
         });
@@ -227,7 +227,7 @@ export const instagramService = {
         const url = `${FACEBOOK_GRAPH_URL}/${facebookPageId}/subscribed_apps`;
         const response = await axios.post(
           url,
-          { subscribed_fields: ['messages'] },
+          { subscribed_fields: ['messages', 'comments', 'messaging_postbacks'] },
           { headers: { Authorization: `Bearer ${facebookPageAccessToken}` } }
         );
         return response.data.success === true;
@@ -386,9 +386,53 @@ export const instagramService = {
   },
 
   /**
+   * Low-level sender for a Graph API `/messages` payload — tries the
+   * Instagram-scoped endpoint first, then falls back to the Facebook Graph
+   * endpoint (accounts connected via a linked Facebook Page).
+   */
+  async _sendMessagePayload(igBusinessId, payload, accessToken, logLabel) {
+    try {
+      const res = await axios.post(`${INSTAGRAM_GRAPH_URL}/${igBusinessId}/messages`, payload, {
+        params: { access_token: accessToken },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log(`✅ ${logLabel} delivered:`, res.data);
+      return true;
+    } catch (err) {
+      console.warn(`Instagram Graph API ${logLabel} send failed:`, err.response?.data || err.message);
+    }
+
+    try {
+      const res2 = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, payload, {
+        params: { access_token: accessToken },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log(`✅ ${logLabel} delivered via Meta Graph API fallback:`, res2.data);
+      return true;
+    } catch (err2) {
+      console.error(`❌ ${logLabel} failed on both endpoints:`, err2.response?.data || err2.message);
+      return false;
+    }
+  },
+
+  /**
+   * Builds a Messenger/Instagram button-template `buttons` array. Each
+   * button is either a web link (`{ name, url }`) or an internal postback
+   * (`{ name, postback }`) that comes back to our webhook as
+   * `messaging[].postback.payload` when tapped.
+   */
+  _buildTemplateButtons(ctaButtons) {
+    return ctaButtons.slice(0, 3).map((b) => (
+      b.postback
+        ? { type: 'postback', title: b.name, payload: b.postback }
+        : { type: 'web_url', url: b.url, title: b.name }
+    ));
+  },
+
+  /**
    * Sends a single DM combining the reply text with up to 3 call-to-action
-   * web-link buttons, rendered as one Instagram/Messenger "button template"
-   * bubble (text + attached buttons together, not two separate messages).
+   * buttons, rendered as one Instagram/Messenger "button template" bubble
+   * (text + attached buttons together, not two separate messages).
    */
   async sendButtonMessage(igBusinessId, recipientId, messageText, ctaButtons, accessToken) {
     if (!recipientId || !accessToken || !igBusinessId || !ctaButtons?.length) return false;
@@ -401,38 +445,74 @@ export const instagramService = {
           payload: {
             template_type: 'button',
             text: messageText?.trim() || '👇',
-            buttons: ctaButtons.slice(0, 3).map((b) => ({
-              type: 'web_url',
-              url: b.url,
-              title: b.name,
-            })),
+            buttons: this._buildTemplateButtons(ctaButtons),
           },
         },
       },
     };
 
+    return this._sendMessagePayload(igBusinessId, payload, accessToken, `CTA button message to ${recipientId}`);
+  },
+
+  /**
+   * Leaves a public reply on a comment (requires
+   * `instagram_business_manage_comments`).
+   */
+  async replyToComment(igBusinessId, commentId, replyText, accessToken) {
+    if (!commentId || !replyText?.trim() || !accessToken) return false;
+
     try {
-      const res = await axios.post(`${INSTAGRAM_GRAPH_URL}/${igBusinessId}/messages`, payload, {
-        params: { access_token: accessToken },
-        headers: { 'Content-Type': 'application/json' }
+      const res = await axios.post(`${INSTAGRAM_GRAPH_URL}/${commentId}/replies`, null, {
+        params: { message: replyText.trim(), access_token: accessToken },
       });
-      console.log(`✅ CTA button message delivered to ${recipientId}:`, res.data);
+      console.log(`✅ Public comment reply posted on ${commentId}:`, res.data);
       return true;
     } catch (err) {
-      console.warn("Instagram Graph API CTA button send failed:", err.response?.data || err.message);
+      console.warn("Instagram Graph API comment reply failed:", err.response?.data || err.message);
     }
 
     try {
-      const res2 = await axios.post(`${FACEBOOK_GRAPH_URL}/${igBusinessId}/messages`, payload, {
-        params: { access_token: accessToken },
-        headers: { 'Content-Type': 'application/json' }
+      const res2 = await axios.post(`${FACEBOOK_GRAPH_URL}/${commentId}/replies`, null, {
+        params: { message: replyText.trim(), access_token: accessToken },
       });
-      console.log(`✅ CTA button message delivered via Meta Graph API fallback:`, res2.data);
+      console.log(`✅ Public comment reply posted via Meta Graph API fallback:`, res2.data);
       return true;
     } catch (err2) {
-      console.error(`❌ CTA button send to ${recipientId} failed on both endpoints:`, err2.response?.data || err2.message);
+      console.error(`❌ Comment reply on ${commentId} failed on both endpoints:`, err2.response?.data || err2.message);
       return false;
     }
-  }
+  },
+
+  /**
+   * Sends a DM to whoever left a comment, using Instagram's "Private Reply"
+   * mechanism (`recipient.comment_id`) — this works even though the
+   * commenter has never messaged the account before, within Meta's Private
+   * Replies response window. Used for the "opening DM" step of a
+   * comment-to-DM automation.
+   */
+  async sendCommentPrivateReply(igBusinessId, commentId, messageText, ctaButtons, accessToken) {
+    if (!commentId || !accessToken || !igBusinessId) return false;
+
+    const payload = ctaButtons?.length
+      ? {
+          recipient: { comment_id: commentId },
+          message: {
+            attachment: {
+              type: 'template',
+              payload: {
+                template_type: 'button',
+                text: messageText?.trim() || '👇',
+                buttons: this._buildTemplateButtons(ctaButtons),
+              },
+            },
+          },
+        }
+      : {
+          recipient: { comment_id: commentId },
+          message: { text: messageText?.trim() },
+        };
+
+    return this._sendMessagePayload(igBusinessId, payload, accessToken, `Private reply DM for comment ${commentId}`);
+  },
 };
 

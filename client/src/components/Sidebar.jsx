@@ -8,6 +8,7 @@ const NAV = [
   { id: 'campaigns', icon: 'campaigns', label: 'Campaigns' },
   { id: 'automations', icon: 'automation', label: 'Automations' },
   { id: 'auto-reply', icon: 'automation', label: 'Auto Reply' },
+  { id: 'comment-to-dm', icon: 'automation', label: 'Comment to DM' },
 ];
 
 const BOTTOM_NAV = [

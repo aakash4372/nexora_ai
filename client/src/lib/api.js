@@ -102,4 +102,13 @@ export const instagramAPI = {
   saveAutoReplySettings: (data) => api.put('/api/instagram/auto-reply-settings', data),
 };
 
+/* ─── Comment-to-DM Automations ──────────────────────────── */
+export const commentAutomationsAPI = {
+  list: () => api.get('/api/instagram/comment-automations'),
+  create: (data) => api.post('/api/instagram/comment-automations', data),
+  update: (id, data) => api.put(`/api/instagram/comment-automations/${id}`, data),
+  toggleStatus: (id) => api.patch(`/api/instagram/comment-automations/${id}`),
+  delete: (id) => api.delete(`/api/instagram/comment-automations/${id}`),
+};
+
 export default api;

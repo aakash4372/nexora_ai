@@ -23,6 +23,7 @@ import Team from './pages/Team';
 import Integrations from './pages/Integrations';
 import InstagramIntegration from './pages/InstagramIntegration';
 import AutoReply from './pages/AutoReply';
+import CommentToDM from './pages/CommentToDM';
 import APIPage from './pages/APIPage';
 import Billing from './pages/Billing';
 import Settings from './pages/Settings';
@@ -41,6 +42,7 @@ const PAGE_MAP = {
   integrations: Integrations,
   instagram: InstagramIntegration,
   'auto-reply': AutoReply,
+  'comment-to-dm': CommentToDM,
   api: APIPage,
   billing: Billing,
   settings: Settings,

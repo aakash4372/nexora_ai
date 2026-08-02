@@ -2,6 +2,103 @@ import { instagramService } from '../services/instagramService.js';
 import InstagramConnection from '../models/InstagramConnection.js';
 import AutoReplySettings from '../models/AutoReplySettings.js';
 import AutoReplyLog from '../models/AutoReplyLog.js';
+import CommentAutomation from '../models/CommentAutomation.js';
+import CommentAutomationLog from '../models/CommentAutomationLog.js';
+
+/**
+ * Matches an incoming comment against the user's Live comment-automations,
+ * posts the public reply, and sends the opening DM (as a private reply to
+ * the comment) with a postback button that continues the flow.
+ */
+async function handleCommentEvent({ igBusinessId, conn, accessToken, commentValue }) {
+  const commentId = commentValue?.id;
+  const mediaId = commentValue?.media?.id || commentValue?.media_id;
+  const commentText = (commentValue?.text || '').toUpperCase();
+  const commenterId = commentValue?.from?.id;
+
+  if (!commentId || !commenterId) return;
+
+  console.log(`💬 New Instagram comment on media ${mediaId}: "${commentValue?.text}" by ${commenterId}`);
+
+  const automations = await CommentAutomation.find({ userId: conn.userId, status: 'Live' });
+
+  for (const automation of automations) {
+    const postMatch = automation.postIds.includes('ALL') || automation.postIds.includes(mediaId);
+    if (!postMatch) continue;
+
+    const keywordMatch = automation.commentMatchType === 'ANY' ||
+      automation.keywords.some((k) => commentText.includes(k.toUpperCase().trim()));
+    if (!keywordMatch) continue;
+
+    // Dedupe so a retried webhook delivery for the same comment never
+    // double-fires the reply/DM flow.
+    try {
+      await CommentAutomationLog.create({ automationId: automation._id, commentId });
+    } catch (err) {
+      if (err.code === 11000) {
+        console.log(`⏭️ Comment ${commentId} already processed for automation ${automation._id} — skipping.`);
+        return;
+      }
+      throw err;
+    }
+
+    automation.runs += 1;
+    await automation.save();
+
+    console.log(`🎯 Comment automation matched! Automation ID: ${automation._id}`);
+
+    if (automation.commentReply) {
+      await instagramService.replyToComment(igBusinessId, commentId, automation.commentReply, accessToken);
+    }
+
+    const openingButtons = [{
+      name: automation.openingButtonName,
+      postback: `CMTAUTO:${automation._id}:OPEN`,
+    }];
+    await instagramService.sendCommentPrivateReply(igBusinessId, commentId, automation.openingMessage, openingButtons, accessToken);
+
+    // Only the first matching automation runs for a given comment.
+    return;
+  }
+}
+
+/**
+ * Sends the final message (link + CTA button) for a comment-automation.
+ */
+async function sendAutomationFinalMessage(igBusinessId, senderId, automation, accessToken) {
+  if (automation.finalCtaButtons.length > 0) {
+    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.finalMessage, automation.finalCtaButtons, accessToken);
+  } else {
+    await instagramService.sendDirectMessage(igBusinessId, senderId, automation.finalMessage, accessToken);
+  }
+}
+
+/**
+ * Continues a comment-automation flow when the user taps a postback button
+ * (the opening DM's button, or the follow-gate's self-report button).
+ * Payload format: `CMTAUTO:<automationId>:<step>`.
+ */
+async function handleAutomationPostback({ igBusinessId, conn, accessToken, senderId, payload }) {
+  if (!payload?.startsWith('CMTAUTO:')) return;
+
+  const [, automationId, step] = payload.split(':');
+  const automation = await CommentAutomation.findOne({ _id: automationId, userId: conn.userId });
+  if (!automation) return;
+
+  console.log(`👆 Comment automation postback "${step}" from ${senderId} for automation ${automationId}`);
+
+  if (step === 'OPEN' && automation.requireFollow) {
+    const followButtons = [{
+      name: automation.followGateButtonName,
+      postback: `CMTAUTO:${automation._id}:FOLLOWED`,
+    }];
+    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.followGateMessage, followButtons, accessToken);
+    return;
+  }
+
+  // step === 'OPEN' with no follow gate, or step === 'FOLLOWED' (self-reported)
+  await sendAutomationFinalMessage(igBusinessId, senderId, automation, accessToken);
+}
 
 export const instagramController = {
   /**
@@ -349,9 +446,9 @@ export const instagramController = {
 
   /**
    * POST /api/instagram/webhook
-   * Handles incoming Instagram Direct Message webhook events only.
-   * Comment/mention events are intentionally ignored — this app auto-replies
-   * to DMs exclusively.
+   * Handles incoming Instagram webhook events: DMs (the Auto Reply Setup
+   * welcome-message flow), comments (Comment-to-DM automations), and
+   * postback button taps (continuing a comment-automation's DM flow).
    */
   async handleWebhookEvent(req, res) {
     console.log('📩 Incoming Instagram webhook event on /api/instagram/webhook:', JSON.stringify(req.body, null, 2));
@@ -380,17 +477,23 @@ export const instagramController = {
       }
 
       const accessToken = conn.accessToken;
+
+      // ── Comments → Comment-to-DM automations ──
+      if (Array.isArray(item.changes)) {
+        for (const changeEvent of item.changes) {
+          if (changeEvent.field === 'comments' || changeEvent.field === 'live_comments') {
+            await handleCommentEvent({ igBusinessId, conn, accessToken, commentValue: changeEvent.value });
+          }
+        }
+      }
+
+      // ── DMs → Auto Reply Setup (welcome-message templates) ──
       const settings = await AutoReplySettings.findOne({ userId: conn.userId });
       const activeTemplate = settings?.templates?.find((t) => t.active);
       // `enabled` is a mode switch, not a kill switch: ON = reply once every
       // 24h per sender (cooldown), OFF = reply to every incoming message
       // every time (no cooldown).
       console.log(`🔎 Connection userId="${conn.userId}" | Settings found: ${!!settings} | 24h-cooldown mode: ${settings?.enabled} | active template: ${!!activeTemplate}`);
-
-      if (!settings || !activeTemplate) {
-        console.warn(`⚠️ Skipping DM reply — no active AutoReplySettings template for userId "${conn.userId}".`);
-        continue;
-      }
 
       // Collect DM events from both the `changes` (messages field) and
       // legacy `messaging` array shapes Meta may send.
@@ -411,6 +514,16 @@ export const instagramController = {
 
       if (Array.isArray(item.messaging)) {
         for (const messagingEvent of item.messaging) {
+          // Postback taps continue a comment-automation's DM flow — handle
+          // separately and don't also treat them as a plain DM.
+          if (messagingEvent.postback && messagingEvent.sender) {
+            await handleAutomationPostback({
+              igBusinessId, conn, accessToken,
+              senderId: messagingEvent.sender.id,
+              payload: messagingEvent.postback.payload,
+            });
+            continue;
+          }
           if (messagingEvent.message && messagingEvent.sender) {
             dmEvents.push({
               senderId: messagingEvent.sender.id,
@@ -419,6 +532,10 @@ export const instagramController = {
             });
           }
         }
+      }
+
+      if (!settings || !activeTemplate) {
+        continue;
       }
 
       for (const dm of dmEvents) {
