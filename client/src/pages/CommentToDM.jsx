@@ -26,15 +26,45 @@ const labelStyle = {
   display: 'block',
 };
 
-const sectionLabelStyle = {
-  fontSize: 13,
-  fontWeight: 700,
-  color: '#fff',
-  marginBottom: 10,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-};
+function Toggle({ on, onClick, size = 'md' }) {
+  const w = size === 'sm' ? 36 : 46;
+  const h = size === 'sm' ? 20 : 26;
+  const dot = size === 'sm' ? 14 : 20;
+  const pad = size === 'sm' ? 3 : 3;
+  return (
+    <div
+      onClick={onClick}
+      role="switch"
+      aria-checked={on}
+      style={{
+        width: w, height: h, borderRadius: 20, cursor: 'pointer', flexShrink: 0,
+        background: on ? IG_GRADIENT : 'rgba(255,255,255,0.12)',
+        position: 'relative', transition: 'background 0.15s',
+      }}
+    >
+      <div style={{
+        position: 'absolute', top: pad, left: on ? w - dot - pad : pad,
+        width: dot, height: dot, borderRadius: '50%', background: '#fff',
+        transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+      }} />
+    </div>
+  );
+}
+
+function SectionCard({ title, subtitle, right, children }) {
+  return (
+    <div className="card" style={{ padding: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: children ? 14 : 0 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{title}</div>
+          {subtitle && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{subtitle}</div>}
+        </div>
+        {right}
+      </div>
+      {children}
+    </div>
+  );
+}
 
 const emptyForm = () => ({
   name: '',
@@ -65,7 +95,7 @@ export default function CommentToDM() {
   const [loading, setLoading] = useState(true);
   const [automations, setAutomations] = useState([]);
 
-  const [showBuilder, setShowBuilder] = useState(false);
+  const [view, setView] = useState('list'); // 'list' | 'builder'
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -91,10 +121,7 @@ export default function CommentToDM() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const openCreateModal = async () => {
-    setEditingId(null);
-    setForm(emptyForm());
-    setShowBuilder(true);
+  const loadMedia = async () => {
     setMediaLoading(true);
     try {
       const res = await instagramAPI.getMedia();
@@ -106,7 +133,14 @@ export default function CommentToDM() {
     }
   };
 
-  const openEditModal = async (automation) => {
+  const openCreateBuilder = () => {
+    setEditingId(null);
+    setForm(emptyForm());
+    setView('builder');
+    loadMedia();
+  };
+
+  const openEditBuilder = (automation) => {
     setEditingId(automation._id);
     setForm({
       name: automation.name || '',
@@ -122,16 +156,8 @@ export default function CommentToDM() {
       finalMessage: automation.finalMessage,
       finalCtaButtons: automation.finalCtaButtons?.length ? automation.finalCtaButtons : [{ name: '', url: '' }],
     });
-    setShowBuilder(true);
-    setMediaLoading(true);
-    try {
-      const res = await instagramAPI.getMedia();
-      if (res.data.success) setMediaList(res.data.media || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setMediaLoading(false);
-    }
+    setView('builder');
+    loadMedia();
   };
 
   const togglePostSelection = (postId) => {
@@ -221,7 +247,7 @@ export default function CommentToDM() {
         : await commentAutomationsAPI.create(payload);
       if (res.data.success) {
         showToast(editingId ? 'Automation updated! 🎉' : 'Automation created! 🎉', 'success');
-        setShowBuilder(false);
+        setView('list');
         fetchAutomations();
       } else {
         showToast(res.data.message || 'Failed to save automation.', 'error');
@@ -297,6 +323,25 @@ export default function CommentToDM() {
     );
   };
 
+  if (view === 'builder') {
+    return (
+      <BuilderView
+        form={form}
+        setForm={setForm}
+        mediaList={mediaList}
+        mediaLoading={mediaLoading}
+        togglePostSelection={togglePostSelection}
+        updateFinalCta={updateFinalCta}
+        addFinalCta={addFinalCta}
+        removeFinalCta={removeFinalCta}
+        onCancel={() => setView('list')}
+        onSave={handleSave}
+        saving={saving}
+        editing={!!editingId}
+      />
+    );
+  }
+
   return (
     <div style={{ color: '#fff' }}>
       {/* Header */}
@@ -314,7 +359,7 @@ export default function CommentToDM() {
           </p>
         </div>
         <button
-          onClick={openCreateModal}
+          onClick={openCreateBuilder}
           style={{
             background: IG_GRADIENT, border: 'none', color: '#fff', padding: '11px 22px',
             borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer',
@@ -342,7 +387,7 @@ export default function CommentToDM() {
             </p>
           </div>
           <button
-            onClick={openCreateModal}
+            onClick={openCreateBuilder}
             style={{
               background: IG_GRADIENT, border: 'none', color: '#fff', padding: '10px 20px',
               borderRadius: 8, fontWeight: 700, cursor: 'pointer', marginTop: 8,
@@ -382,7 +427,7 @@ export default function CommentToDM() {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <button
-                  onClick={() => openEditModal(a)}
+                  onClick={() => openEditBuilder(a)}
                   style={{
                     background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)',
                     padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
@@ -415,70 +460,82 @@ export default function CommentToDM() {
           ))}
         </div>
       )}
-
-      {showBuilder && (
-        <BuilderModal
-          form={form}
-          setForm={setForm}
-          mediaList={mediaList}
-          mediaLoading={mediaLoading}
-          togglePostSelection={togglePostSelection}
-          updateFinalCta={updateFinalCta}
-          addFinalCta={addFinalCta}
-          removeFinalCta={removeFinalCta}
-          onCancel={() => setShowBuilder(false)}
-          onSave={handleSave}
-          saving={saving}
-          editing={!!editingId}
-        />
-      )}
     </div>
   );
 }
 
-function BuilderModal({
+function BuilderView({
   form, setForm, mediaList, mediaLoading, togglePostSelection,
   updateFinalCta, addFinalCta, removeFinalCta, onCancel, onSave, saving, editing,
 }) {
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)',
-      backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, padding: 20,
-    }}>
-      <div style={{
-        background: '#0F172A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 18,
-        width: '100%', maxWidth: 680, maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 20px 50px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column',
-      }}>
-        <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ color: '#fff' }}>
+      <style>{`
+        @media (max-width: 980px) {
+          .cmt-dm-layout { grid-template-columns: 1fr !important; }
+          .cmt-dm-preview { position: static !important; order: -1; }
+        }
+      `}</style>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
+              width: 36, height: 36, borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Icon name="arrowLeft" size={17} />
+          </button>
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{editing ? 'Edit Automation' : 'New Comment-to-DM Automation'}</h2>
+            <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{editing ? 'Edit Automation' : 'New Comment-to-DM Automation'}</h1>
             <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Reply to a comment, then follow up with an automated DM</div>
           </div>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: '#fff', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            style={{
+              background: IG_GRADIENT, border: 'none', color: '#fff', padding: '10px 24px',
+              borderRadius: 8, fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: saving ? 0.7 : 1,
+            }}
+          >
+            {saving ? 'Saving...' : editing ? 'Save Changes' : '⚡ Activate Automation'}
+          </button>
+        </div>
+      </div>
 
-        <div style={{ padding: '24px 28px', flex: 1, display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {/* Two-column: left workflow form, right big live preview */}
+      <div className="cmt-dm-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 1fr) 380px', gap: 24, alignItems: 'flex-start' }}>
 
-          {/* Name */}
-          <div>
-            <label style={labelStyle}>Automation Name (Optional)</label>
+        {/* ── Left: workflow form ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          <SectionCard title="Automation Name" subtitle="Optional — for your own reference">
             <input
               type="text" value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Course Launch Post"
               style={inputStyle}
             />
-          </div>
+          </SectionCard>
 
-          {/* Step 1: Post/Reel picker */}
-          <div>
-            <div style={sectionLabelStyle}><span>1️⃣</span> Select Posts &amp; Reels</div>
+          <SectionCard title="Select Posts & Reels" subtitle={form.selectedPostIds.length === 0 ? 'None selected — applies to ALL posts' : `${form.selectedPostIds.length} selected`}>
             {mediaLoading ? (
               <div style={{ color: 'var(--muted)', fontSize: 13 }}>Loading your posts...</div>
+            ) : mediaList.length === 0 ? (
+              <div style={{ color: 'var(--muted)', fontSize: 13 }}>No posts found — connect Instagram to load your posts &amp; reels.</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 10, maxHeight: 220, overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 10, maxHeight: 240, overflowY: 'auto' }}>
                 {mediaList.map((m) => {
                   const selected = form.selectedPostIds.includes(m.id);
                   return (
@@ -503,14 +560,9 @@ function BuilderModal({
                 })}
               </div>
             )}
-            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>
-              {form.selectedPostIds.length === 0 ? 'None selected — this automation will apply to ALL posts.' : `${form.selectedPostIds.length} post(s)/reel(s) selected.`}
-            </div>
-          </div>
+          </SectionCard>
 
-          {/* Step 2: Comment condition */}
-          <div>
-            <div style={sectionLabelStyle}><span>2️⃣</span> Comment Condition</div>
+          <SectionCard title="Comment Condition">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {['ANY', 'KEYWORDS'].map((type) => (
                 <div
@@ -541,58 +593,41 @@ function BuilderModal({
                 style={{ ...inputStyle, marginTop: 10 }}
               />
             )}
-          </div>
+          </SectionCard>
 
-          {/* Step 3: Comment reply */}
-          <div>
-            <div style={sectionLabelStyle}><span>3️⃣</span> Comment Reply (Public)</div>
+          <SectionCard title="Comment Reply" subtitle="Public reply left on the comment">
             <input
               type="text" value={form.commentReply}
               onChange={(e) => setForm((f) => ({ ...f, commentReply: e.target.value }))}
               placeholder='"Thanks! Please check your DM 😊"'
               style={inputStyle}
             />
-          </div>
+          </SectionCard>
 
-          {/* Step 4: Opening DM */}
-          <div>
-            <div style={sectionLabelStyle}><span>4️⃣</span> Opening DM</div>
-            <textarea
-              rows={3} value={form.openingMessage}
-              onChange={(e) => setForm((f) => ({ ...f, openingMessage: e.target.value }))}
-              placeholder={'Hey 👋\nThanks for your interest.\n\nClick below to continue.'}
-              style={{ ...inputStyle, resize: 'vertical', marginBottom: 8 }}
-            />
-            <label style={labelStyle}>Button Name</label>
-            <input
-              type="text" value={form.openingButtonName}
-              onChange={(e) => setForm((f) => ({ ...f, openingButtonName: e.target.value }))}
-              placeholder="Send me the link"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Step 5: Follow gate (optional) */}
-          <div>
-            <div
-              onClick={() => setForm((f) => ({ ...f, requireFollow: !f.requireFollow }))}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: form.requireFollow ? 12 : 0 }}
-            >
-              <div style={{
-                width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-                border: `2px solid ${form.requireFollow ? '#E1306C' : 'var(--muted)'}`,
-                background: form.requireFollow ? '#E1306C' : 'transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {form.requireFollow && <Icon name="check" size={12} style={{ color: '#fff' }} />}
-              </div>
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>Ask user to follow before continuing (Optional)</span>
+          <SectionCard title="They will get" subtitle="Opening DM, sent right after their comment">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <textarea
+                rows={3} value={form.openingMessage}
+                onChange={(e) => setForm((f) => ({ ...f, openingMessage: e.target.value }))}
+                placeholder={'Hey 👋\nThanks for your interest.\n\nClick below to continue.'}
+                style={{ ...inputStyle, resize: 'vertical' }}
+              />
+              <input
+                type="text" value={form.openingButtonName}
+                onChange={(e) => setForm((f) => ({ ...f, openingButtonName: e.target.value }))}
+                placeholder="Send me the link"
+                style={inputStyle}
+              />
             </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Ask user to follow before continuing"
+            subtitle="Optional — self-reported (Instagram has no API to verify follows)"
+            right={<Toggle on={form.requireFollow} onClick={() => setForm((f) => ({ ...f, requireFollow: !f.requireFollow }))} />}
+          >
             {form.requireFollow && (
-              <div style={{ paddingLeft: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
-                  Instagram doesn't provide a way to verify follows via API — the user self-confirms by tapping the button below.
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <input
                   type="text" value={form.followGateMessage}
                   onChange={(e) => setForm((f) => ({ ...f, followGateMessage: e.target.value }))}
@@ -607,80 +642,192 @@ function BuilderModal({
                 />
               </div>
             )}
-          </div>
+          </SectionCard>
 
-          {/* Step 6: Final DM */}
-          <div>
-            <div style={sectionLabelStyle}><span>5️⃣</span> Final DM</div>
-            <textarea
-              rows={3} value={form.finalMessage}
-              onChange={(e) => setForm((f) => ({ ...f, finalMessage: e.target.value }))}
-              placeholder={"Here's your link 👇\n\nhttps://yourwebsite.com"}
-              style={{ ...inputStyle, resize: 'vertical', marginBottom: 10 }}
-            />
-            <label style={labelStyle}>CTA Buttons</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {form.finalCtaButtons.map((btn, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    type="text" value={btn.name}
-                    onChange={(e) => updateFinalCta(idx, 'name', e.target.value)}
-                    placeholder="Button Name (e.g. Open Website)"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                  <input
-                    type="text" value={btn.url}
-                    onChange={(e) => updateFinalCta(idx, 'url', e.target.value)}
-                    placeholder="https://yourwebsite.com"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
+          <SectionCard title="And then, they will get" subtitle="Final DM, with your link">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <textarea
+                rows={3} value={form.finalMessage}
+                onChange={(e) => setForm((f) => ({ ...f, finalMessage: e.target.value }))}
+                placeholder={"Here's your link 👇\n\nhttps://yourwebsite.com"}
+                style={{ ...inputStyle, resize: 'vertical' }}
+              />
+              <div>
+                <label style={labelStyle}>CTA Buttons</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {form.finalCtaButtons.map((btn, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        type="text" value={btn.name}
+                        onChange={(e) => updateFinalCta(idx, 'name', e.target.value)}
+                        placeholder="Button Name (e.g. Open Website)"
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <input
+                        type="text" value={btn.url}
+                        onChange={(e) => updateFinalCta(idx, 'url', e.target.value)}
+                        placeholder="https://yourwebsite.com"
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <button
+                        onClick={() => removeFinalCta(idx)}
+                        style={{
+                          background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none',
+                          borderRadius: 8, width: 38, flexShrink: 0, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        <Icon name="trash" size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {form.finalCtaButtons.length < 3 && (
                   <button
-                    onClick={() => removeFinalCta(idx)}
+                    onClick={addFinalCta}
                     style={{
-                      background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none',
-                      borderRadius: 8, width: 38, flexShrink: 0, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginTop: 8, background: 'rgba(91,124,250,0.12)', color: '#7E97FF',
+                      border: '1px dashed rgba(91,124,250,0.4)', borderRadius: 8, padding: '7px 12px',
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
                     }}
                   >
-                    <Icon name="trash" size={14} />
+                    <Icon name="plus" size={13} /> Add CTA Button
                   </button>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
-            {form.finalCtaButtons.length < 3 && (
-              <button
-                onClick={addFinalCta}
-                style={{
-                  marginTop: 8, background: 'rgba(91,124,250,0.12)', color: '#7E97FF',
-                  border: '1px dashed rgba(91,124,250,0.4)', borderRadius: 8, padding: '7px 12px',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                }}
-              >
-                <Icon name="plus" size={13} /> Add CTA Button
-              </button>
-            )}
-          </div>
+          </SectionCard>
         </div>
 
-        <div style={{ padding: '16px 28px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <button
-            onClick={onCancel}
-            style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: '#fff', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onSave}
-            disabled={saving}
-            style={{
-              background: IG_GRADIENT, border: 'none', color: '#fff', padding: '10px 24px',
-              borderRadius: 8, fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: saving ? 0.7 : 1,
-            }}
-          >
-            {saving ? 'Saving...' : editing ? 'Save Changes' : '⚡ Activate Automation'}
-          </button>
+        {/* ── Right: big live preview ── */}
+        <div className="cmt-dm-preview" style={{ position: 'sticky', top: 84, display: 'flex', justifyContent: 'center' }}>
+          <FlowPreview form={form} />
         </div>
       </div>
     </div>
   );
+}
+
+function FlowPreview({ form }) {
+  const opening = form.openingMessage.trim();
+  const openingBtn = form.openingButtonName.trim() || 'Send me the link';
+  const followMsg = form.followGateMessage.trim();
+  const followBtn = form.followGateButtonName.trim() || "I've Followed ✅";
+  const final = form.finalMessage.trim();
+  const finalCtas = form.finalCtaButtons.filter((b) => b.name?.trim());
+
+  return (
+    <div style={{
+      width: 340, borderRadius: 40, border: '9px solid #14151c', background: '#14151c',
+      boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'center', background: '#14151c', padding: '7px 0 3px' }}>
+        <div style={{ width: 100, height: 20, borderRadius: 11, background: '#000' }} />
+      </div>
+
+      <div style={{ background: '#000', display: 'flex', flexDirection: 'column', height: 620 }}>
+        {/* Chat header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px',
+          borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
+        }}>
+          <Icon name="arrowLeft" size={19} style={{ color: '#fff' }} />
+          <div style={{
+            width: 34, height: 34, borderRadius: '50%', background: IG_GRADIENT,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" strokeWidth="2">
+              <rect x="2" y="2" width="20" height="20" rx="5" />
+              <circle cx="12" cy="12" r="4" />
+              <circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Instagram</div>
+            <div style={{ fontSize: 11, color: '#8E8E93' }}>Active now</div>
+          </div>
+        </div>
+
+        {/* Chat body — full flow, stacked as a conversation */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* 1. Opening DM */}
+          {opening ? (
+            <>
+              <BotBubble text={opening} />
+              {openingBtn && <ButtonRow label={openingBtn} />}
+              <UserBubble text={openingBtn} />
+            </>
+          ) : (
+            <EmptyHint text="Type your opening DM to preview it here..." />
+          )}
+
+          {/* 2. Follow gate (optional) */}
+          {form.requireFollow && (
+            <>
+              {followMsg && <BotBubble text={followMsg} />}
+              {followBtn && <ButtonRow label={followBtn} />}
+              <UserBubble text={followBtn} />
+            </>
+          )}
+
+          {/* 3. Final DM */}
+          {final ? (
+            <>
+              <BotBubble text={final} />
+              {finalCtas.map((btn, idx) => <ButtonRow key={idx} label={btn.name} />)}
+            </>
+          ) : (
+            <EmptyHint text="Type your final DM to preview it here..." />
+          )}
+        </div>
+
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
+          borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
+        }}>
+          <div style={{ flex: 1, background: '#1c1c1e', borderRadius: 20, padding: '9px 14px', fontSize: 13, color: '#8E8E93' }}>
+            Message...
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BotBubble({ text }) {
+  return (
+    <div style={{ alignSelf: 'flex-start', maxWidth: '82%' }}>
+      <div style={{ background: '#262626', color: '#fff', padding: '10px 15px', borderRadius: '18px 18px 18px 4px', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+        {text}
+      </div>
+    </div>
+  );
+}
+
+function UserBubble({ text }) {
+  return (
+    <div style={{ alignSelf: 'flex-end', maxWidth: '75%' }}>
+      <div style={{ background: IG_GRADIENT, color: '#fff', padding: '9px 15px', borderRadius: '18px 18px 4px 18px', fontSize: 13.5, fontWeight: 600 }}>
+        {text}
+      </div>
+    </div>
+  );
+}
+
+function ButtonRow({ label }) {
+  return (
+    <div style={{ alignSelf: 'flex-start', maxWidth: '82%' }}>
+      <div style={{
+        background: '#262626', color: '#5B9BFF', padding: '10px 15px', borderRadius: 12,
+        fontSize: 13.5, fontWeight: 600, textAlign: 'center', marginTop: -2,
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function EmptyHint({ text }) {
+  return <div style={{ color: '#8E8E93', fontSize: 12.5, fontStyle: 'italic', padding: '6px 4px' }}>{text}</div>;
 }
