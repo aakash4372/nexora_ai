@@ -515,10 +515,13 @@ function BuilderView({
       </div>
 
       {/* Two-column: left workflow form, right big live preview */}
-      <div className="cmt-dm-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 1fr) 380px', gap: 24, alignItems: 'flex-start' }}>
+      <div className="cmt-dm-layout" style={{ display: 'grid', gridTemplateColumns: '380px minmax(0, 1fr)', gap: 32, alignItems: 'flex-start' }}>
 
-        {/* ── Left: workflow form ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* ── Left: workflow form (scrolls independently, like the preview stays fixed) ── */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 16,
+          maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', paddingRight: 6,
+        }}>
 
           <SectionCard title="Automation Name" subtitle="Optional — for your own reference">
             <input
@@ -700,8 +703,22 @@ function BuilderView({
         </div>
 
         {/* ── Right: big live preview ── */}
-        <div className="cmt-dm-preview" style={{ position: 'sticky', top: 84, display: 'flex', justifyContent: 'center' }}>
+        <div className="cmt-dm-preview" style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
           <FlowPreview form={form} />
+          <div style={{ display: 'flex', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 4 }}>
+            {['Post', 'Comments', 'DM'].map((tab) => (
+              <div
+                key={tab}
+                style={{
+                  padding: '7px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 700, cursor: 'default',
+                  background: tab === 'DM' ? IG_GRADIENT : 'transparent',
+                  color: tab === 'DM' ? '#fff' : 'var(--muted)',
+                }}
+              >
+                {tab}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
