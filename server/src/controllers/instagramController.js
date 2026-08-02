@@ -1,6 +1,7 @@
 import { instagramService } from '../services/instagramService.js';
 import InstagramConnection from '../models/InstagramConnection.js';
 import AutoReplySettings from '../models/AutoReplySettings.js';
+import AutoReplyLog from '../models/AutoReplyLog.js';
 
 export const instagramController = {
   /**
