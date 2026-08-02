@@ -468,6 +468,8 @@ function BuilderView({
   form, setForm, mediaList, mediaLoading, togglePostSelection,
   updateFinalCta, addFinalCta, removeFinalCta, onCancel, onSave, saving, editing,
 }) {
+  const [previewTab, setPreviewTab] = useState('DM');
+
   return (
     <div style={{ color: '#fff' }}>
       <style>{`
@@ -704,15 +706,17 @@ function BuilderView({
 
         {/* ── Right: big live preview ── */}
         <div className="cmt-dm-preview" style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-          <FlowPreview form={form} />
+          <PhonePreview form={form} mediaList={mediaList} previewTab={previewTab} />
           <div style={{ display: 'flex', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 4 }}>
             {['Post', 'Comments', 'DM'].map((tab) => (
               <div
                 key={tab}
+                onClick={() => setPreviewTab(tab)}
                 style={{
-                  padding: '7px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 700, cursor: 'default',
-                  background: tab === 'DM' ? IG_GRADIENT : 'transparent',
-                  color: tab === 'DM' ? '#fff' : 'var(--muted)',
+                  padding: '7px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                  background: previewTab === tab ? IG_GRADIENT : 'transparent',
+                  color: previewTab === tab ? '#fff' : 'var(--muted)',
+                  transition: 'background 0.12s, color 0.12s',
                 }}
               >
                 {tab}
@@ -720,6 +724,94 @@ function BuilderView({
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PhonePreview({ form, mediaList, previewTab }) {
+  const selectedMedia = mediaList.filter((m) => form.selectedPostIds.includes(m.id));
+  const previewPost = selectedMedia[0] || mediaList[0] || null;
+
+  return (
+    <div style={{
+      width: 340, borderRadius: 40, border: '9px solid #14151c', background: '#14151c',
+      boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'center', background: '#14151c', padding: '7px 0 3px' }}>
+        <div style={{ width: 100, height: 20, borderRadius: 11, background: '#000' }} />
+      </div>
+
+      <div style={{ background: '#000', height: 620 }}>
+        {previewTab === 'Post' && <PostPreview post={previewPost} />}
+        {previewTab === 'Comments' && <CommentsPreview post={previewPost} form={form} />}
+        {previewTab === 'DM' && <FlowPreview form={form} />}
+      </div>
+    </div>
+  );
+}
+
+function PostPreview({ post }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: IG_GRADIENT, flexShrink: 0 }} />
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>your_account</div>
+      </div>
+      <div style={{ width: '100%', aspectRatio: '1', background: '#111' }}>
+        {post ? (
+          <img src={post.media_url || post.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8E8E93', fontSize: 12.5 }}>
+            Select a post to preview
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 16, padding: '12px 14px', color: '#fff' }}>
+        <Icon name="smile" size={22} />
+        <span style={{ fontSize: 18 }}>💬</span>
+        <span style={{ fontSize: 18 }}>📤</span>
+      </div>
+      {post?.caption && (
+        <div style={{ padding: '0 14px', fontSize: 12.5, color: '#ddd', lineHeight: 1.4 }}>
+          <strong>your_account</strong> {post.caption}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommentsPreview({ post, form }) {
+  const sampleComment = form.commentMatchType === 'KEYWORDS' && form.keywordsText.trim()
+    ? form.keywordsText.split(',')[0].trim()
+    : 'price 🙋';
+  const reply = form.commentReply.trim();
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Comments</div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#444', flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 12.5, color: '#fff' }}><strong>a_follower</strong> {sampleComment}</div>
+            <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 3 }}>2m</div>
+          </div>
+        </div>
+        {reply && (
+          <div style={{ display: 'flex', gap: 10, marginLeft: 30 }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', background: IG_GRADIENT, flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 12.5, color: '#fff' }}><strong>your_account</strong> {reply}</div>
+              <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 3 }}>Just now</div>
+            </div>
+          </div>
+        )}
+        {!post && (
+          <div style={{ color: '#8E8E93', fontSize: 12, fontStyle: 'italic' }}>Sample comment — select a post to match your real content.</div>
+        )}
       </div>
     </div>
   );
@@ -734,78 +826,69 @@ function FlowPreview({ form }) {
   const finalCtas = form.finalCtaButtons.filter((b) => b.name?.trim());
 
   return (
-    <div style={{
-      width: 340, borderRadius: 40, border: '9px solid #14151c', background: '#14151c',
-      boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'center', background: '#14151c', padding: '7px 0 3px' }}>
-        <div style={{ width: 100, height: 20, borderRadius: 11, background: '#000' }} />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Chat header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px',
+        borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
+      }}>
+        <Icon name="arrowLeft" size={19} style={{ color: '#fff' }} />
+        <div style={{
+          width: 34, height: 34, borderRadius: '50%', background: IG_GRADIENT,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" strokeWidth="2">
+            <rect x="2" y="2" width="20" height="20" rx="5" />
+            <circle cx="12" cy="12" r="4" />
+            <circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none" />
+          </svg>
+        </div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Instagram</div>
+          <div style={{ fontSize: 11, color: '#8E8E93' }}>Active now</div>
+        </div>
       </div>
 
-      <div style={{ background: '#000', display: 'flex', flexDirection: 'column', height: 620 }}>
-        {/* Chat header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
-        }}>
-          <Icon name="arrowLeft" size={19} style={{ color: '#fff' }} />
-          <div style={{
-            width: 34, height: 34, borderRadius: '50%', background: IG_GRADIENT,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" strokeWidth="2">
-              <rect x="2" y="2" width="20" height="20" rx="5" />
-              <circle cx="12" cy="12" r="4" />
-              <circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none" />
-            </svg>
-          </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Instagram</div>
-            <div style={{ fontSize: 11, color: '#8E8E93' }}>Active now</div>
-          </div>
-        </div>
+      {/* Chat body — full flow, stacked as a conversation */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* Chat body — full flow, stacked as a conversation */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* 1. Opening DM */}
+        {opening ? (
+          <>
+            <BotBubble text={opening} />
+            {openingBtn && <ButtonRow label={openingBtn} />}
+            <UserBubble text={openingBtn} />
+          </>
+        ) : (
+          <EmptyHint text="Type your opening DM to preview it here..." />
+        )}
 
-          {/* 1. Opening DM */}
-          {opening ? (
-            <>
-              <BotBubble text={opening} />
-              {openingBtn && <ButtonRow label={openingBtn} />}
-              <UserBubble text={openingBtn} />
-            </>
-          ) : (
-            <EmptyHint text="Type your opening DM to preview it here..." />
-          )}
+        {/* 2. Follow gate (optional) */}
+        {form.requireFollow && (
+          <>
+            {followMsg && <BotBubble text={followMsg} />}
+            {followBtn && <ButtonRow label={followBtn} />}
+            <UserBubble text={followBtn} />
+          </>
+        )}
 
-          {/* 2. Follow gate (optional) */}
-          {form.requireFollow && (
-            <>
-              {followMsg && <BotBubble text={followMsg} />}
-              {followBtn && <ButtonRow label={followBtn} />}
-              <UserBubble text={followBtn} />
-            </>
-          )}
+        {/* 3. Final DM */}
+        {final ? (
+          <>
+            <BotBubble text={final} />
+            {finalCtas.map((btn, idx) => <ButtonRow key={idx} label={btn.name} />)}
+          </>
+        ) : (
+          <EmptyHint text="Type your final DM to preview it here..." />
+        )}
+      </div>
 
-          {/* 3. Final DM */}
-          {final ? (
-            <>
-              <BotBubble text={final} />
-              {finalCtas.map((btn, idx) => <ButtonRow key={idx} label={btn.name} />)}
-            </>
-          ) : (
-            <EmptyHint text="Type your final DM to preview it here..." />
-          )}
-        </div>
-
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
-          borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
-        }}>
-          <div style={{ flex: 1, background: '#1c1c1e', borderRadius: 20, padding: '9px 14px', fontSize: 13, color: '#8E8E93' }}>
-            Message...
-          </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
+        borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
+      }}>
+        <div style={{ flex: 1, background: '#1c1c1e', borderRadius: 20, padding: '9px 14px', fontSize: 13, color: '#8E8E93' }}>
+          Message...
         </div>
       </div>
     </div>
