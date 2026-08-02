@@ -294,9 +294,11 @@ export default function AutoReply() {
             {/* Enable / Disable */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontSize: 14.5, fontWeight: 700 }}>Auto Reply</div>
+                <div style={{ fontSize: 14.5, fontWeight: 700 }}>24h Cooldown</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                  Automatically message anyone who sends you a DM
+                  {enabled
+                    ? 'ON — each sender gets the auto-reply once every 24 hours'
+                    : 'OFF — the auto-reply is sent for every incoming message'}
                 </div>
               </div>
               <div

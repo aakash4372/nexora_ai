@@ -382,10 +382,13 @@ export const instagramController = {
       const accessToken = conn.accessToken;
       const settings = await AutoReplySettings.findOne({ userId: conn.userId });
       const activeTemplate = settings?.templates?.find((t) => t.active);
-      console.log(`🔎 Connection userId="${conn.userId}" | Settings found: ${!!settings} | enabled: ${settings?.enabled} | active template: ${!!activeTemplate}`);
+      // `enabled` is a mode switch, not a kill switch: ON = reply once every
+      // 24h per sender (cooldown), OFF = reply to every incoming message
+      // every time (no cooldown).
+      console.log(`🔎 Connection userId="${conn.userId}" | Settings found: ${!!settings} | 24h-cooldown mode: ${settings?.enabled} | active template: ${!!activeTemplate}`);
 
-      if (!settings || !settings.enabled || !activeTemplate) {
-        console.warn(`⚠️ Skipping DM reply — no enabled/active AutoReplySettings template for userId "${conn.userId}".`);
+      if (!settings || !activeTemplate) {
+        console.warn(`⚠️ Skipping DM reply — no active AutoReplySettings template for userId "${conn.userId}".`);
         continue;
       }
 
@@ -424,26 +427,27 @@ export const instagramController = {
 
         console.log(`📩 New Instagram DM: "${dm.text}" from ${dm.senderId}`);
 
-        // Only auto-reply once every 24h per sender (a welcome message, not
-        // a reply-to-everything bot) — if they messaged again within the
-        // last 24h (including while a human is handling the conversation
-        // manually), skip. After 24h of silence, treat the next message as
-        // a fresh conversation and greet again.
-        const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-        const lastLog = await AutoReplyLog.findOne({ userId: conn.userId, senderId: dm.senderId });
-        if (lastLog && Date.now() - lastLog.sentAt.getTime() < COOLDOWN_MS) {
-          console.log(`⏭️ Sender ${dm.senderId} already got an auto-reply within the last 24h — skipping.`);
-          continue;
-        }
+        // 24h-cooldown mode (toggle ON): only auto-reply once every 24h per
+        // sender — if they messaged again within the last 24h (including
+        // while a human is handling the conversation manually), skip.
+        // Toggle OFF: no cooldown, reply to every incoming message.
+        if (settings.enabled) {
+          const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+          const lastLog = await AutoReplyLog.findOne({ userId: conn.userId, senderId: dm.senderId });
+          if (lastLog && Date.now() - lastLog.sentAt.getTime() < COOLDOWN_MS) {
+            console.log(`⏭️ Sender ${dm.senderId} already got an auto-reply within the last 24h — skipping.`);
+            continue;
+          }
 
-        // Record the send before actually calling the Graph API so a
-        // duplicate webhook delivery for the same event (Meta retries on
-        // slow responses) can't slip past the cooldown check above.
-        await AutoReplyLog.findOneAndUpdate(
-          { userId: conn.userId, senderId: dm.senderId },
-          { sentAt: new Date() },
-          { upsert: true }
-        );
+          // Record the send before actually calling the Graph API so a
+          // duplicate webhook delivery for the same event (Meta retries on
+          // slow responses) can't slip past the cooldown check above.
+          await AutoReplyLog.findOneAndUpdate(
+            { userId: conn.userId, senderId: dm.senderId },
+            { sentAt: new Date() },
+            { upsert: true }
+          );
+        }
 
         if (settings.delaySeconds > 0) {
           await new Promise((resolve) => setTimeout(resolve, settings.delaySeconds * 1000));
