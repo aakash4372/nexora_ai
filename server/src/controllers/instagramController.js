@@ -74,9 +74,8 @@ async function sendAutomationFinalMessage(igBusinessId, senderId, automation, ac
 }
 
 /**
- * Continues a comment-automation flow when the user taps a postback button
- * (the opening DM's button, or the follow-gate's self-report button).
- * Payload format: `CMTAUTO:<automationId>:<step>`.
+ * Continues a comment-automation flow when the user taps the opening DM's
+ * button. Payload format: `CMTAUTO:<automationId>:<step>`.
  */
 async function handleAutomationPostback({ igBusinessId, conn, accessToken, senderId, payload }) {
   if (!payload?.startsWith('CMTAUTO:')) return;
@@ -87,16 +86,21 @@ async function handleAutomationPostback({ igBusinessId, conn, accessToken, sende
 
   console.log(`👆 Comment automation postback "${step}" from ${senderId} for automation ${automationId}`);
 
-  if (step === 'OPEN' && automation.requireFollow) {
+  if (step !== 'OPEN') return;
+
+  // Optional follow reminder: a message + a link button to the profile.
+  // There's no way to verify a follow, so this never pretends to gate
+  // anything — it's the end of the automated flow. To send the final
+  // link, the user wires up a separate CTA or manual step.
+  if (automation.sendFollowReminder && conn.username) {
     const followButtons = [{
-      name: automation.followGateButtonName,
-      postback: `CMTAUTO:${automation._id}:FOLLOWED`,
+      name: automation.followReminderButtonName,
+      url: `https://instagram.com/${conn.username}`,
     }];
-    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.followGateMessage, followButtons, accessToken);
+    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.followReminderMessage, followButtons, accessToken);
     return;
   }
 
-  // step === 'OPEN' with no follow gate, or step === 'FOLLOWED' (self-reported)
   await sendAutomationFinalMessage(igBusinessId, senderId, automation, accessToken);
 }
 

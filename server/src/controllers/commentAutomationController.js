@@ -40,9 +40,9 @@ function cleanPayload(body, userId) {
     commentReply: body.commentReply.trim(),
     openingMessage: body.openingMessage.trim(),
     openingButtonName: body.openingButtonName?.trim() || 'Send me the link',
-    requireFollow: !!body.requireFollow,
-    followGateMessage: body.followGateMessage?.trim() || 'Please follow us first, then tap below to continue 👇',
-    followGateButtonName: body.followGateButtonName?.trim() || "I've Followed ✅",
+    sendFollowReminder: !!body.sendFollowReminder,
+    followReminderMessage: body.followReminderMessage?.trim() || "We'd love to have you follow us! 🙌",
+    followReminderButtonName: body.followReminderButtonName?.trim() || 'Follow Now',
     finalMessage: body.finalMessage.trim(),
     finalCtaButtons: Array.isArray(body.finalCtaButtons)
       ? body.finalCtaButtons.filter((b) => b?.name && b?.url).map((b) => ({ name: b.name.trim(), url: b.url.trim() })).slice(0, 3)

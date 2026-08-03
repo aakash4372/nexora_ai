@@ -74,9 +74,9 @@ const emptyForm = () => ({
   commentReply: 'Thanks! Please check your DM 😊',
   openingMessage: 'Hey 👋\nThanks for your interest.\n\nClick below to continue.',
   openingButtonName: 'Send me the link',
-  requireFollow: false,
-  followGateMessage: 'Please follow us first, then tap below to continue 👇',
-  followGateButtonName: "I've Followed ✅",
+  sendFollowReminder: false,
+  followReminderMessage: "We'd love to have you follow us! 🙌",
+  followReminderButtonName: 'Follow Now',
   finalMessage: "Here's your link 👇",
   finalCtaButtons: [{ name: 'Open Website', url: '' }],
 });
@@ -165,9 +165,9 @@ export default function CommentToDM() {
       commentReply: automation.commentReply,
       openingMessage: automation.openingMessage,
       openingButtonName: automation.openingButtonName,
-      requireFollow: automation.requireFollow,
-      followGateMessage: automation.followGateMessage,
-      followGateButtonName: automation.followGateButtonName,
+      sendFollowReminder: automation.sendFollowReminder,
+      followReminderMessage: automation.followReminderMessage,
+      followReminderButtonName: automation.followReminderButtonName,
       finalMessage: automation.finalMessage,
       finalCtaButtons: automation.finalCtaButtons?.length ? automation.finalCtaButtons : [{ name: '', url: '' }],
     });
@@ -248,9 +248,9 @@ export default function CommentToDM() {
       commentReply: form.commentReply.trim(),
       openingMessage: form.openingMessage.trim(),
       openingButtonName: form.openingButtonName.trim() || 'Send me the link',
-      requireFollow: form.requireFollow,
-      followGateMessage: form.followGateMessage.trim(),
-      followGateButtonName: form.followGateButtonName.trim(),
+      sendFollowReminder: form.sendFollowReminder,
+      followReminderMessage: form.followReminderMessage.trim(),
+      followReminderButtonName: form.followReminderButtonName.trim(),
       finalMessage: form.finalMessage.trim(),
       finalCtaButtons: cleanCtas,
     };
@@ -643,29 +643,35 @@ function BuilderView({
           </SectionCard>
 
           <SectionCard
-            title="Ask user to follow before continuing"
-            subtitle="Optional — self-reported (Instagram has no API to verify follows)"
-            right={<Toggle on={form.requireFollow} onClick={() => setForm((f) => ({ ...f, requireFollow: !f.requireFollow }))} />}
+            title="Follow Reminder"
+            subtitle="Optional — a nudge only. Instagram has no API to verify follows, so this doesn't gate or continue the flow."
+            right={<Toggle on={form.sendFollowReminder} onClick={() => setForm((f) => ({ ...f, sendFollowReminder: !f.sendFollowReminder }))} />}
           >
-            {form.requireFollow && (
+            {form.sendFollowReminder && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <input
-                  type="text" value={form.followGateMessage}
-                  onChange={(e) => setForm((f) => ({ ...f, followGateMessage: e.target.value }))}
-                  placeholder="Please follow us first, then tap below to continue 👇"
+                  type="text" value={form.followReminderMessage}
+                  onChange={(e) => setForm((f) => ({ ...f, followReminderMessage: e.target.value }))}
+                  placeholder="We'd love to have you follow us! 🙌"
                   style={inputStyle}
                 />
                 <input
-                  type="text" value={form.followGateButtonName}
-                  onChange={(e) => setForm((f) => ({ ...f, followGateButtonName: e.target.value }))}
-                  placeholder="I've Followed ✅"
+                  type="text" value={form.followReminderButtonName}
+                  onChange={(e) => setForm((f) => ({ ...f, followReminderButtonName: e.target.value }))}
+                  placeholder="Follow Now"
                   style={inputStyle}
                 />
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.4 }}>
+                  This ends the automated flow — the "Follow Now" button just opens your Instagram profile. The final link below won't be sent automatically after this; use a separate CTA or manual flow to send it.
+                </div>
               </div>
             )}
           </SectionCard>
 
-          <SectionCard title="And then, they will get" subtitle="Final DM, with your link">
+          <SectionCard
+            title="And then, they will get"
+            subtitle={form.sendFollowReminder ? 'Final DM, with your link — skipped automatically since the Follow Reminder is on' : 'Final DM, with your link'}
+          >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <textarea
                 rows={3} value={form.finalMessage}
@@ -913,8 +919,8 @@ function CommentsPreview({ post, form, igProfile }) {
 function FlowPreview({ form, igProfile }) {
   const opening = form.openingMessage.trim();
   const openingBtn = form.openingButtonName.trim() || 'Send me the link';
-  const followMsg = form.followGateMessage.trim();
-  const followBtn = form.followGateButtonName.trim() || "I've Followed ✅";
+  const followMsg = form.followReminderMessage.trim();
+  const followBtn = form.followReminderButtonName.trim() || 'Follow Now';
   const final = form.finalMessage.trim();
   const finalCtas = form.finalCtaButtons.filter((b) => b.name?.trim());
   const username = igProfile?.username || 'Instagram';
@@ -947,17 +953,18 @@ function FlowPreview({ form, igProfile }) {
           <EmptyHint text="Type your opening DM to preview it here..." />
         )}
 
-        {/* 2. Follow gate (optional) */}
-        {form.requireFollow && (
+        {/* 2. Follow reminder (optional, ends the automated flow here) */}
+        {form.sendFollowReminder && (
           <>
             {followMsg && <BotBubble text={followMsg} />}
             {followBtn && <ButtonRow label={followBtn} />}
-            <UserBubble text={followBtn} />
           </>
         )}
 
-        {/* 3. Final DM */}
-        {final ? (
+        {/* 3. Final DM — skipped automatically when the follow reminder is on */}
+        {form.sendFollowReminder ? (
+          <EmptyHint text="Final DM won't be sent automatically — the follow reminder above ends the flow." />
+        ) : final ? (
           <>
             <BotBubble text={final} />
             {finalCtas.map((btn, idx) => <ButtonRow key={idx} label={btn.name} />)}

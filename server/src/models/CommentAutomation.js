@@ -65,21 +65,24 @@ const commentAutomationSchema = new mongoose.Schema({
     default: 'Send me the link',
   },
 
-  // Optional self-reported "please follow us" gate
-  requireFollow: {
+  // Optional non-blocking "please follow us" reminder — since Instagram
+  // gives no API to verify a follow, this only nudges the user with a
+  // message + a link button to the profile. It never gates or continues
+  // the flow itself.
+  sendFollowReminder: {
     type: Boolean,
     default: false,
   },
-  followGateMessage: {
+  followReminderMessage: {
     type: String,
-    default: 'Please follow us first, then tap below to continue 👇',
+    default: "We'd love to have you follow us! 🙌",
   },
-  followGateButtonName: {
+  followReminderButtonName: {
     type: String,
-    default: "I've Followed ✅",
+    default: 'Follow Now',
   },
 
-  // Final DM once the user has clicked through (and confirmed follow, if required)
+  // Final DM once the user has clicked through
   finalMessage: {
     type: String,
     required: true,

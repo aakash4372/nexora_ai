@@ -2,24 +2,24 @@ import { useApp } from '../context/AppContext';
 import Icon from './Icon';
 
 const NAV = [
-  { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { id: 'inbox', icon: 'inbox', label: 'Inbox', badge: 3 },
-  { id: 'contacts', icon: 'contacts', label: 'Contacts' },
-  { id: 'campaigns', icon: 'campaigns', label: 'Campaigns' },
-  { id: 'automations', icon: 'automation', label: 'Automations' },
+  // { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
+  // { id: 'inbox', icon: 'inbox', label: 'Inbox', badge: 3 },
+  // { id: 'contacts', icon: 'contacts', label: 'Contacts' },
+  // { id: 'campaigns', icon: 'campaigns', label: 'Campaigns' },
+  // { id: 'automations', icon: 'automation', label: 'Automations' },
   { id: 'auto-reply', icon: 'automation', label: 'Auto Reply' },
   { id: 'comment-to-dm', icon: 'automation', label: 'Comment to DM' },
 ];
 
 const BOTTOM_NAV = [
-  { id: 'analytics', icon: 'analytics', label: 'Analytics' },
-  { id: 'ai', icon: 'ai', label: 'AI Assist' },
-  { id: 'team', icon: 'team', label: 'Team' },
-  { id: 'integrations', icon: 'integrations', label: 'Integrations' },
-  { id: 'instagram', icon: 'integrations', label: 'Instagram' },
-  { id: 'api', icon: 'api', label: 'API' },
-  { id: 'billing', icon: 'billing', label: 'Billing' },
-  { id: 'settings', icon: 'settings', label: 'Settings' },
+  // { id: 'analytics', icon: 'analytics', label: 'Analytics' },
+  // { id: 'ai', icon: 'ai', label: 'AI Assist' },
+  // { id: 'team', icon: 'team', label: 'Team' },
+  // { id: 'integrations', icon: 'integrations', label: 'Integrations' },
+  // { id: 'instagram', icon: 'integrations', label: 'Instagram' },
+  // { id: 'api', icon: 'api', label: 'API' },
+  // { id: 'billing', icon: 'billing', label: 'Billing' },
+  // { id: 'settings', icon: 'settings', label: 'Settings' },
 ];
 
 export default function Sidebar() {
