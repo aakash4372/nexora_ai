@@ -65,21 +65,27 @@ const commentAutomationSchema = new mongoose.Schema({
     default: 'Send me the link',
   },
 
-  // Optional non-blocking "please follow us" reminder — since Instagram
-  // gives no API to verify a follow, this only nudges the user with a
-  // message + a link button to the profile. It never gates or continues
-  // the flow itself.
-  sendFollowReminder: {
+  // Optional "follow confirmation" step, modeled after ManyChat's pattern.
+  // Instagram gives no API/webhook to verify an actual follow, so this is
+  // explicitly a SELF-CONFIRMATION: the user taps "Follow Now" (opens their
+  // profile) and then taps a confirm button on their own say-so. Nothing in
+  // this flow checks or claims to check real follow status — the confirm
+  // button just gates progression to the final message.
+  requireFollowConfirm: {
     type: Boolean,
     default: false,
   },
-  followReminderMessage: {
+  followConfirmMessage: {
     type: String,
-    default: "We'd love to have you follow us! 🙌",
+    default: 'Please follow us, then tap below to confirm 👇',
   },
-  followReminderButtonName: {
+  followNowButtonName: {
     type: String,
     default: 'Follow Now',
+  },
+  followConfirmButtonName: {
+    type: String,
+    default: 'I Have Followed',
   },
 
   // Final DM once the user has clicked through

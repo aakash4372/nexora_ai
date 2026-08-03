@@ -74,8 +74,9 @@ async function sendAutomationFinalMessage(igBusinessId, senderId, automation, ac
 }
 
 /**
- * Continues a comment-automation flow when the user taps the opening DM's
- * button. Payload format: `CMTAUTO:<automationId>:<step>`.
+ * Continues a comment-automation flow when the user taps a postback button
+ * (the opening DM's button, or the follow-confirm step's self-confirm
+ * button). Payload format: `CMTAUTO:<automationId>:<step>`.
  */
 async function handleAutomationPostback({ igBusinessId, conn, accessToken, senderId, payload }) {
   if (!payload?.startsWith('CMTAUTO:')) return;
@@ -86,21 +87,21 @@ async function handleAutomationPostback({ igBusinessId, conn, accessToken, sende
 
   console.log(`👆 Comment automation postback "${step}" from ${senderId} for automation ${automationId}`);
 
-  if (step !== 'OPEN') return;
-
-  // Optional follow reminder: a message + a link button to the profile.
-  // There's no way to verify a follow, so this never pretends to gate
-  // anything — it's the end of the automated flow. To send the final
-  // link, the user wires up a separate CTA or manual step.
-  if (automation.sendFollowReminder && conn.username) {
-    const followButtons = [{
-      name: automation.followReminderButtonName,
-      url: `https://instagram.com/${conn.username}`,
-    }];
-    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.followReminderMessage, followButtons, accessToken);
+  if (step === 'OPEN' && automation.requireFollowConfirm) {
+    // Follow-confirm step, ManyChat-style: one message with two buttons —
+    // "Follow Now" (opens the profile) and a self-confirm button that just
+    // gates progression. Instagram has no API/webhook to verify an actual
+    // follow, so nothing here checks or claims real follow status — the
+    // user is trusted at their word when they tap confirm.
+    const buttons = [
+      ...(conn.username ? [{ name: automation.followNowButtonName, url: `https://instagram.com/${conn.username}` }] : []),
+      { name: automation.followConfirmButtonName, postback: `CMTAUTO:${automation._id}:FOLLOW_CONFIRMED` },
+    ];
+    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.followConfirmMessage, buttons, accessToken);
     return;
   }
 
+  // step === 'OPEN' with the confirm step disabled, or step === 'FOLLOW_CONFIRMED' (self-reported, unverifiable)
   await sendAutomationFinalMessage(igBusinessId, senderId, automation, accessToken);
 }
 

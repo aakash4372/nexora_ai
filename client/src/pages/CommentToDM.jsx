@@ -74,9 +74,10 @@ const emptyForm = () => ({
   commentReply: 'Thanks! Please check your DM 😊',
   openingMessage: 'Hey 👋\nThanks for your interest.\n\nClick below to continue.',
   openingButtonName: 'Send me the link',
-  sendFollowReminder: false,
-  followReminderMessage: "We'd love to have you follow us! 🙌",
-  followReminderButtonName: 'Follow Now',
+  requireFollowConfirm: false,
+  followConfirmMessage: 'Please follow us, then tap below to confirm 👇',
+  followNowButtonName: 'Follow Now',
+  followConfirmButtonName: 'I Have Followed',
   finalMessage: "Here's your link 👇",
   finalCtaButtons: [{ name: 'Open Website', url: '' }],
 });
@@ -165,9 +166,10 @@ export default function CommentToDM() {
       commentReply: automation.commentReply,
       openingMessage: automation.openingMessage,
       openingButtonName: automation.openingButtonName,
-      sendFollowReminder: automation.sendFollowReminder,
-      followReminderMessage: automation.followReminderMessage,
-      followReminderButtonName: automation.followReminderButtonName,
+      requireFollowConfirm: automation.requireFollowConfirm,
+      followConfirmMessage: automation.followConfirmMessage,
+      followNowButtonName: automation.followNowButtonName,
+      followConfirmButtonName: automation.followConfirmButtonName,
       finalMessage: automation.finalMessage,
       finalCtaButtons: automation.finalCtaButtons?.length ? automation.finalCtaButtons : [{ name: '', url: '' }],
     });
@@ -248,9 +250,10 @@ export default function CommentToDM() {
       commentReply: form.commentReply.trim(),
       openingMessage: form.openingMessage.trim(),
       openingButtonName: form.openingButtonName.trim() || 'Send me the link',
-      sendFollowReminder: form.sendFollowReminder,
-      followReminderMessage: form.followReminderMessage.trim(),
-      followReminderButtonName: form.followReminderButtonName.trim(),
+      requireFollowConfirm: form.requireFollowConfirm,
+      followConfirmMessage: form.followConfirmMessage.trim(),
+      followNowButtonName: form.followNowButtonName.trim(),
+      followConfirmButtonName: form.followConfirmButtonName.trim(),
       finalMessage: form.finalMessage.trim(),
       finalCtaButtons: cleanCtas,
     };
@@ -643,26 +646,35 @@ function BuilderView({
           </SectionCard>
 
           <SectionCard
-            title="Follow Reminder"
-            subtitle="Optional — a nudge only. Instagram has no API to verify follows, so this doesn't gate or continue the flow."
-            right={<Toggle on={form.sendFollowReminder} onClick={() => setForm((f) => ({ ...f, sendFollowReminder: !f.sendFollowReminder }))} />}
+            title="Follow Confirmation Step"
+            subtitle="Optional — modeled on ManyChat's flow. Toggle on to require a self-confirm tap before the final message."
+            right={<Toggle on={form.requireFollowConfirm} onClick={() => setForm((f) => ({ ...f, requireFollowConfirm: !f.requireFollowConfirm }))} />}
           >
-            {form.sendFollowReminder && (
+            {form.requireFollowConfirm && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <input
-                  type="text" value={form.followReminderMessage}
-                  onChange={(e) => setForm((f) => ({ ...f, followReminderMessage: e.target.value }))}
-                  placeholder="We'd love to have you follow us! 🙌"
+                  type="text" value={form.followConfirmMessage}
+                  onChange={(e) => setForm((f) => ({ ...f, followConfirmMessage: e.target.value }))}
+                  placeholder="Please follow us, then tap below to confirm 👇"
                   style={inputStyle}
                 />
                 <input
-                  type="text" value={form.followReminderButtonName}
-                  onChange={(e) => setForm((f) => ({ ...f, followReminderButtonName: e.target.value }))}
+                  type="text" value={form.followNowButtonName}
+                  onChange={(e) => setForm((f) => ({ ...f, followNowButtonName: e.target.value }))}
                   placeholder="Follow Now"
                   style={inputStyle}
                 />
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.4 }}>
-                  This ends the automated flow — the "Follow Now" button just opens your Instagram profile. The final link below won't be sent automatically after this; use a separate CTA or manual flow to send it.
+                <input
+                  type="text" value={form.followConfirmButtonName}
+                  onChange={(e) => setForm((f) => ({ ...f, followConfirmButtonName: e.target.value }))}
+                  placeholder="I Have Followed"
+                  style={inputStyle}
+                />
+                <div style={{
+                  fontSize: 11.5, color: '#F5A623', lineHeight: 1.4, background: 'rgba(245,166,35,0.1)',
+                  border: '1px solid rgba(245,166,35,0.25)', borderRadius: 8, padding: '8px 10px',
+                }}>
+                  ⚠️ Instagram does not provide an API to verify follows. "{form.followConfirmButtonName.trim() || 'I Have Followed'}" is a self-confirmation only — tapping it does not prove the user actually followed.
                 </div>
               </div>
             )}
@@ -670,7 +682,7 @@ function BuilderView({
 
           <SectionCard
             title="And then, they will get"
-            subtitle={form.sendFollowReminder ? 'Final DM, with your link — skipped automatically since the Follow Reminder is on' : 'Final DM, with your link'}
+            subtitle={form.requireFollowConfirm ? 'Final DM, with your link — sent only after they tap the confirm button' : 'Final DM, with your link'}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <textarea
@@ -919,8 +931,9 @@ function CommentsPreview({ post, form, igProfile }) {
 function FlowPreview({ form, igProfile }) {
   const opening = form.openingMessage.trim();
   const openingBtn = form.openingButtonName.trim() || 'Send me the link';
-  const followMsg = form.followReminderMessage.trim();
-  const followBtn = form.followReminderButtonName.trim() || 'Follow Now';
+  const followMsg = form.followConfirmMessage.trim();
+  const followNowBtn = form.followNowButtonName.trim() || 'Follow Now';
+  const followConfirmBtn = form.followConfirmButtonName.trim() || 'I Have Followed';
   const final = form.finalMessage.trim();
   const finalCtas = form.finalCtaButtons.filter((b) => b.name?.trim());
   const username = igProfile?.username || 'Instagram';
@@ -953,18 +966,18 @@ function FlowPreview({ form, igProfile }) {
           <EmptyHint text="Type your opening DM to preview it here..." />
         )}
 
-        {/* 2. Follow reminder (optional, ends the automated flow here) */}
-        {form.sendFollowReminder && (
+        {/* 2. Follow confirmation step (optional, self-reported — gates step 3) */}
+        {form.requireFollowConfirm && (
           <>
             {followMsg && <BotBubble text={followMsg} />}
-            {followBtn && <ButtonRow label={followBtn} />}
+            {followNowBtn && <ButtonRow label={followNowBtn} />}
+            {followConfirmBtn && <ButtonRow label={followConfirmBtn} />}
+            <UserBubble text={followConfirmBtn} />
           </>
         )}
 
-        {/* 3. Final DM — skipped automatically when the follow reminder is on */}
-        {form.sendFollowReminder ? (
-          <EmptyHint text="Final DM won't be sent automatically — the follow reminder above ends the flow." />
-        ) : final ? (
+        {/* 3. Final DM */}
+        {final ? (
           <>
             <BotBubble text={final} />
             {finalCtas.map((btn, idx) => <ButtonRow key={idx} label={btn.name} />)}
