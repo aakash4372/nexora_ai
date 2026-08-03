@@ -40,11 +40,6 @@ function cleanPayload(body, userId) {
     commentReply: body.commentReply.trim(),
     openingMessage: body.openingMessage.trim(),
     openingButtonName: body.openingButtonName?.trim() || 'Send me the link',
-    requireFollowConfirm: !!body.requireFollowConfirm,
-    followMessage: body.followMessage?.trim() || 'Please follow us on Instagram to unlock the next step 🙌',
-    followNowButtonName: body.followNowButtonName?.trim() || 'Follow us on Instagram',
-    followConfirmPromptMessage: body.followConfirmPromptMessage?.trim() || "Once you've followed, tap below to continue 👇",
-    followConfirmButtonName: body.followConfirmButtonName?.trim() || 'Continue ✅',
     finalMessage: body.finalMessage.trim(),
     finalCtaButtons: Array.isArray(body.finalCtaButtons)
       ? body.finalCtaButtons.filter((b) => b?.name && b?.url).map((b) => ({ name: b.name.trim(), url: b.url.trim() })).slice(0, 3)

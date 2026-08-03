@@ -74,11 +74,6 @@ const emptyForm = () => ({
   commentReply: 'Thanks! Please check your DM 😊',
   openingMessage: 'Hey 👋\nThanks for your interest.\n\nClick below to continue.',
   openingButtonName: 'Send me the link',
-  requireFollowConfirm: false,
-  followMessage: 'Please follow us on Instagram to unlock the next step 🙌',
-  followNowButtonName: 'Follow us on Instagram',
-  followConfirmPromptMessage: "Once you've followed, tap below to continue 👇",
-  followConfirmButtonName: 'Continue ✅',
   finalMessage: "Here's your link 👇",
   finalCtaButtons: [{ name: 'Open Website', url: '' }],
 });
@@ -167,11 +162,6 @@ export default function CommentToDM() {
       commentReply: automation.commentReply,
       openingMessage: automation.openingMessage,
       openingButtonName: automation.openingButtonName,
-      requireFollowConfirm: automation.requireFollowConfirm,
-      followMessage: automation.followMessage,
-      followNowButtonName: automation.followNowButtonName,
-      followConfirmPromptMessage: automation.followConfirmPromptMessage,
-      followConfirmButtonName: automation.followConfirmButtonName,
       finalMessage: automation.finalMessage,
       finalCtaButtons: automation.finalCtaButtons?.length ? automation.finalCtaButtons : [{ name: '', url: '' }],
     });
@@ -252,11 +242,6 @@ export default function CommentToDM() {
       commentReply: form.commentReply.trim(),
       openingMessage: form.openingMessage.trim(),
       openingButtonName: form.openingButtonName.trim() || 'Send me the link',
-      requireFollowConfirm: form.requireFollowConfirm,
-      followMessage: form.followMessage.trim(),
-      followNowButtonName: form.followNowButtonName.trim(),
-      followConfirmPromptMessage: form.followConfirmPromptMessage.trim(),
-      followConfirmButtonName: form.followConfirmButtonName.trim(),
       finalMessage: form.finalMessage.trim(),
       finalCtaButtons: cleanCtas,
     };
@@ -648,68 +633,7 @@ function BuilderView({
             </div>
           </SectionCard>
 
-          <SectionCard
-            title="Follow Confirmation Step"
-            subtitle="Optional — ManyChat-style: two paced bubbles instead of one crowded message."
-            right={<Toggle on={form.requireFollowConfirm} onClick={() => setForm((f) => ({ ...f, requireFollowConfirm: !f.requireFollowConfirm }))} />}
-          >
-            {form.requireFollowConfirm && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>Bubble 1 — Follow Prompt</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <input
-                      type="text" value={form.followMessage}
-                      onChange={(e) => setForm((f) => ({ ...f, followMessage: e.target.value }))}
-                      placeholder="Please follow us on Instagram to unlock the next step 🙌"
-                      style={inputStyle}
-                    />
-                    <input
-                      type="text" value={form.followNowButtonName}
-                      onChange={(e) => setForm((f) => ({ ...f, followNowButtonName: e.target.value }))}
-                      placeholder="Follow us on Instagram"
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 11 }}>
-                  <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.15)', marginLeft: 5 }} />
-                  <span>~1.4s pause, then next bubble</span>
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Bubble 2 — Confirm Prompt</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <input
-                      type="text" value={form.followConfirmPromptMessage}
-                      onChange={(e) => setForm((f) => ({ ...f, followConfirmPromptMessage: e.target.value }))}
-                      placeholder="Once you've followed, tap below to continue 👇"
-                      style={inputStyle}
-                    />
-                    <input
-                      type="text" value={form.followConfirmButtonName}
-                      onChange={(e) => setForm((f) => ({ ...f, followConfirmButtonName: e.target.value }))}
-                      placeholder="Continue ✅"
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
-
-                <div style={{
-                  fontSize: 11.5, color: '#F5A623', lineHeight: 1.4, background: 'rgba(245,166,35,0.1)',
-                  border: '1px solid rgba(245,166,35,0.25)', borderRadius: 8, padding: '8px 10px',
-                }}>
-                  ⚠️ Instagram does not provide an API to verify follows. "{form.followConfirmButtonName.trim() || 'Continue ✅'}" is a self-confirmation only — tapping it does not prove the user actually followed.
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-          <SectionCard
-            title="And then, they will get"
-            subtitle={form.requireFollowConfirm ? 'Final DM, with your link — sent only after they tap the confirm button' : 'Final DM, with your link'}
-          >
+          <SectionCard title="And then, they will get" subtitle="Final DM, with your link">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <textarea
                 rows={3} value={form.finalMessage}
@@ -957,10 +881,6 @@ function CommentsPreview({ post, form, igProfile }) {
 function FlowPreview({ form, igProfile }) {
   const opening = form.openingMessage.trim();
   const openingBtn = form.openingButtonName.trim() || 'Send me the link';
-  const followMsg = form.followMessage.trim();
-  const followNowBtn = form.followNowButtonName.trim() || 'Follow us on Instagram';
-  const followConfirmPrompt = form.followConfirmPromptMessage.trim();
-  const followConfirmBtn = form.followConfirmButtonName.trim() || 'Continue ✅';
   const final = form.finalMessage.trim();
   const finalCtas = form.finalCtaButtons.filter((b) => b.name?.trim());
   const username = igProfile?.username || 'Instagram';
@@ -993,21 +913,7 @@ function FlowPreview({ form, igProfile }) {
           <EmptyHint text="Type your opening DM to preview it here..." />
         )}
 
-        {/* 2. Follow confirmation step — two paced bubbles, ManyChat-style (optional, self-reported — gates step 3) */}
-        {form.requireFollowConfirm && (
-          <>
-            {followMsg && <BotBubble text={followMsg} />}
-            {followNowBtn && <ButtonRow label={followNowBtn} />}
-
-            <TypingPause />
-
-            {followConfirmPrompt && <BotBubble text={followConfirmPrompt} />}
-            {followConfirmBtn && <ButtonRow label={followConfirmBtn} />}
-            <UserBubble text={followConfirmBtn} />
-          </>
-        )}
-
-        {/* 3. Final DM */}
+        {/* 2. Final DM */}
         {final ? (
           <>
             <BotBubble text={final} />
@@ -1065,18 +971,4 @@ function ButtonRow({ label }) {
 
 function EmptyHint({ text }) {
   return <div style={{ color: '#8E8E93', fontSize: 12.5, fontStyle: 'italic', padding: '6px 4px' }}>{text}</div>;
-}
-
-function TypingPause() {
-  return (
-    <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 4, padding: '4px 15px' }}>
-      {[0, 1, 2].map((i) => (
-        <div key={i} style={{
-          width: 5, height: 5, borderRadius: '50%', background: '#8E8E93',
-          animation: 'typingDot 1.2s infinite ease-in-out', animationDelay: `${i * 0.15}s`,
-        }} />
-      ))}
-      <style>{`@keyframes typingDot { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }`}</style>
-    </div>
-  );
 }
