@@ -62,6 +62,8 @@ async function handleCommentEvent({ igBusinessId, conn, accessToken, commentValu
   }
 }
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * Sends the final message (link + CTA button) for a comment-automation.
  */
@@ -88,16 +90,24 @@ async function handleAutomationPostback({ igBusinessId, conn, accessToken, sende
   console.log(`👆 Comment automation postback "${step}" from ${senderId} for automation ${automationId}`);
 
   if (step === 'OPEN' && automation.requireFollowConfirm) {
-    // Follow-confirm step, ManyChat-style: one message with two buttons —
-    // "Follow Now" (opens the profile) and a self-confirm button that just
-    // gates progression. Instagram has no API/webhook to verify an actual
-    // follow, so nothing here checks or claims real follow status — the
-    // user is trusted at their word when they tap confirm.
-    const buttons = [
-      ...(conn.username ? [{ name: automation.followNowButtonName, url: `https://instagram.com/${conn.username}` }] : []),
-      { name: automation.followConfirmButtonName, postback: `CMTAUTO:${automation._id}:FOLLOW_CONFIRMED` },
-    ];
-    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.followConfirmMessage, buttons, accessToken);
+    // Follow-confirm step, ManyChat-style: two separate bubbles sent a beat
+    // apart (not one bubble crammed with two buttons) — first the "go
+    // follow" prompt with a link button to the profile, then a short pause,
+    // then the "confirm" prompt with the self-confirm button that gates
+    // progression. Instagram has no API/webhook to verify an actual follow,
+    // so nothing here checks or claims real follow status — the user is
+    // trusted at their word when they tap confirm.
+    if (conn.username) {
+      const followButtons = [{ name: automation.followNowButtonName, url: `https://instagram.com/${conn.username}` }];
+      await instagramService.sendButtonMessage(igBusinessId, senderId, automation.followMessage, followButtons, accessToken);
+    } else {
+      await instagramService.sendDirectMessage(igBusinessId, senderId, automation.followMessage, accessToken);
+    }
+
+    await wait(1400);
+
+    const confirmButtons = [{ name: automation.followConfirmButtonName, postback: `CMTAUTO:${automation._id}:FOLLOW_CONFIRMED` }];
+    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.followConfirmPromptMessage, confirmButtons, accessToken);
     return;
   }
 
