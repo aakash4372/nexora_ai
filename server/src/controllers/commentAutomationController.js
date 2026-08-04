@@ -9,8 +9,10 @@ const isValidUrl = (url) => {
   }
 };
 
+const VALID_MEDIA_TYPES = ['NONE', 'IMAGE', 'VIDEO', 'FILE', 'YOUTUBE'];
+
 function validatePayload(body) {
-  const { commentMatchType, keywords, commentReply, openingMessage, finalMessage, finalCtaButtons } = body;
+  const { commentMatchType, keywords, commentReply, openingMessage, finalMessage, finalCtaButtons, finalMediaType, finalMediaUrl } = body;
 
   if (!commentReply?.trim()) return 'A public comment reply message is required.';
   if (!openingMessage?.trim()) return 'An opening DM message is required.';
@@ -23,6 +25,13 @@ function validatePayload(body) {
   for (const b of finalCtaButtons || []) {
     if (b?.name && b?.url && !isValidUrl(b.url)) {
       return `CTA button "${b.name}" has an invalid URL. It must start with http:// or https://`;
+    }
+  }
+
+  if (finalMediaType && finalMediaType !== 'NONE') {
+    if (!VALID_MEDIA_TYPES.includes(finalMediaType)) return 'Invalid media type for the final DM.';
+    if (!finalMediaUrl?.trim() || !isValidUrl(finalMediaUrl)) {
+      return 'Add a valid media URL (http:// or https://), or turn media off.';
     }
   }
 
@@ -44,6 +53,8 @@ function cleanPayload(body, userId) {
     finalCtaButtons: Array.isArray(body.finalCtaButtons)
       ? body.finalCtaButtons.filter((b) => b?.name && b?.url).map((b) => ({ name: b.name.trim(), url: b.url.trim() })).slice(0, 3)
       : [],
+    finalMediaType: VALID_MEDIA_TYPES.includes(body.finalMediaType) ? body.finalMediaType : 'NONE',
+    finalMediaUrl: body.finalMediaType && body.finalMediaType !== 'NONE' ? (body.finalMediaUrl?.trim() || '') : '',
   };
 }
 

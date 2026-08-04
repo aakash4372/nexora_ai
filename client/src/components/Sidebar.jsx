@@ -90,8 +90,12 @@ export default function Sidebar() {
       <SectionLabel label="Workspace" />
       {NAV.map((item) => <NavItem key={item.id} item={item} />)}
 
-      <SectionLabel label="Admin" />
-      {BOTTOM_NAV.map((item) => <NavItem key={item.id} item={item} />)}
+      {BOTTOM_NAV.length > 0 && (
+        <>
+          <SectionLabel label="Admin" />
+          {BOTTOM_NAV.map((item) => <NavItem key={item.id} item={item} />)}
+        </>
+      )}
     </div>
   );
 }

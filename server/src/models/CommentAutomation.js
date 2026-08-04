@@ -74,6 +74,19 @@ const commentAutomationSchema = new mongoose.Schema({
     type: [ctaButtonSchema],
     default: [],
   },
+  // Optional media attached to the final DM. IMAGE/VIDEO/FILE are sent as a
+  // real Graph API attachment ahead of the text; YOUTUBE has no native
+  // attachment type on Instagram, so the link is appended to the message
+  // text instead (Instagram auto-unfurls it into a preview card).
+  finalMediaType: {
+    type: String,
+    enum: ['NONE', 'IMAGE', 'VIDEO', 'FILE', 'YOUTUBE'],
+    default: 'NONE',
+  },
+  finalMediaUrl: {
+    type: String,
+    default: '',
+  },
 
   status: {
     type: String,

@@ -4,6 +4,38 @@ import Icon from '../components/Icon';
 import { ModalHead } from '../components/Modal';
 
 const STATUS_BADGE = { Live: 'badge-green', Paused: 'badge-orange', Draft: 'badge-gray' };
+const NODE_W = 210, NODE_H = 74;
+
+/**
+ * ManyChat-style smooth connectors between nodes, in flow order (each node
+ * connects to the next). Purely visual — an SVG overlay under the node
+ * layer, redrawn on every render so it tracks live drag positions.
+ */
+function FlowConnections({ nodes }) {
+  if (nodes.length < 2) return null;
+  return (
+    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+      <defs>
+        <marker id="flow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#5B7CFA" />
+        </marker>
+      </defs>
+      {nodes.slice(0, -1).map((node, i) => {
+        const next = nodes[i + 1];
+        const x1 = node.x + NODE_W, y1 = node.y + NODE_H / 2;
+        const x2 = next.x, y2 = next.y + NODE_H / 2;
+        const dx = Math.max(Math.abs(x2 - x1) * 0.5, 40);
+        const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+        return (
+          <g key={`${node.id}-${next.id}`}>
+            <path d={path} fill="none" stroke="#5B7CFA" strokeWidth="2" markerEnd="url(#flow-arrow)" opacity="0.85" />
+            <circle cx={x1} cy={y1} r="4" fill="#5B7CFA" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 export default function Automations() {
   const { state, dispatch, showToast, openModal, closeModal } = useApp();
@@ -151,6 +183,7 @@ export default function Automations() {
               overflow: 'hidden',
             }}
           >
+            <FlowConnections nodes={nodes} />
             {nodes.map((node) => (
               <div
                 key={node.id}

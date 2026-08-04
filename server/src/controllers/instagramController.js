@@ -62,14 +62,29 @@ async function handleCommentEvent({ igBusinessId, conn, accessToken, commentValu
   }
 }
 
+const GRAPH_MEDIA_TYPE = { IMAGE: 'image', VIDEO: 'video', FILE: 'file' };
+
 /**
- * Sends the final message (link + CTA button) for a comment-automation.
+ * Sends the final message (link + CTA button + optional media) for a
+ * comment-automation. IMAGE/VIDEO/FILE go out as a real attachment bubble
+ * ahead of the text; YOUTUBE has no native Instagram attachment type, so
+ * the link is appended to the message text instead — Instagram auto-
+ * unfurls it into a preview card on the recipient's side.
  */
 async function sendAutomationFinalMessage(igBusinessId, senderId, automation, accessToken) {
+  const graphType = GRAPH_MEDIA_TYPE[automation.finalMediaType];
+  if (graphType && automation.finalMediaUrl) {
+    await instagramService.sendMediaMessage(igBusinessId, senderId, graphType, automation.finalMediaUrl, accessToken);
+  }
+
+  const messageText = automation.finalMediaType === 'YOUTUBE' && automation.finalMediaUrl
+    ? `${automation.finalMessage}\n\n${automation.finalMediaUrl}`
+    : automation.finalMessage;
+
   if (automation.finalCtaButtons.length > 0) {
-    await instagramService.sendButtonMessage(igBusinessId, senderId, automation.finalMessage, automation.finalCtaButtons, accessToken);
+    await instagramService.sendButtonMessage(igBusinessId, senderId, messageText, automation.finalCtaButtons, accessToken);
   } else {
-    await instagramService.sendDirectMessage(igBusinessId, senderId, automation.finalMessage, accessToken);
+    await instagramService.sendDirectMessage(igBusinessId, senderId, messageText, accessToken);
   }
 }
 

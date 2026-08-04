@@ -430,6 +430,26 @@ export const instagramService = {
   },
 
   /**
+   * Sends a single media attachment (image/video/file) by URL, as its own
+   * DM bubble ahead of any follow-up text/button message.
+   */
+  async sendMediaMessage(igBusinessId, recipientId, mediaType, mediaUrl, accessToken) {
+    if (!recipientId || !accessToken || !igBusinessId || !mediaUrl) return false;
+
+    const payload = {
+      recipient: { id: recipientId },
+      message: {
+        attachment: {
+          type: mediaType, // 'image' | 'video' | 'file'
+          payload: { url: mediaUrl, is_reusable: true },
+        },
+      },
+    };
+
+    return this._sendMessagePayload(igBusinessId, payload, accessToken, `${mediaType} attachment to ${recipientId}`);
+  },
+
+  /**
    * Sends a single DM combining the reply text with up to 3 call-to-action
    * buttons, rendered as one Instagram/Messenger "button template" bubble
    * (text + attached buttons together, not two separate messages).

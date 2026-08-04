@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { instagramAPI, commentAutomationsAPI } from '../lib/api';
 import Icon from '../components/Icon';
@@ -76,7 +76,17 @@ const emptyForm = () => ({
   openingButtonName: 'Send me the link',
   finalMessage: "Here's your link 👇",
   finalCtaButtons: [{ name: 'Open Website', url: '' }],
+  finalMediaType: 'NONE',
+  finalMediaUrl: '',
 });
+
+const MEDIA_TYPES = [
+  { value: 'NONE', label: 'No Media', icon: 'x' },
+  { value: 'IMAGE', label: 'Image', icon: 'image' },
+  { value: 'VIDEO', label: 'Video', icon: 'video' },
+  { value: 'FILE', label: 'File', icon: 'file' },
+  { value: 'YOUTUBE', label: 'YouTube Link', icon: 'youtube' },
+];
 
 const isValidUrl = (url) => {
   try {
@@ -164,6 +174,8 @@ export default function CommentToDM() {
       openingButtonName: automation.openingButtonName,
       finalMessage: automation.finalMessage,
       finalCtaButtons: automation.finalCtaButtons?.length ? automation.finalCtaButtons : [{ name: '', url: '' }],
+      finalMediaType: automation.finalMediaType || 'NONE',
+      finalMediaUrl: automation.finalMediaUrl || '',
     });
     setView('builder');
     loadMedia();
@@ -228,6 +240,11 @@ export default function CommentToDM() {
       }
     }
 
+    if (form.finalMediaType !== 'NONE' && !isValidUrl(form.finalMediaUrl)) {
+      showToast('Add a valid media URL — it must start with http:// or https://', 'error');
+      return;
+    }
+
     const selectedMedia = mediaList.filter((m) => form.selectedPostIds.includes(m.id));
 
     const payload = {
@@ -244,6 +261,8 @@ export default function CommentToDM() {
       openingButtonName: form.openingButtonName.trim() || 'Send me the link',
       finalMessage: form.finalMessage.trim(),
       finalCtaButtons: cleanCtas,
+      finalMediaType: form.finalMediaType,
+      finalMediaUrl: form.finalMediaType !== 'NONE' ? form.finalMediaUrl.trim() : '',
     };
 
     setSaving(true);
@@ -476,6 +495,7 @@ function BuilderView({
   updateFinalCta, addFinalCta, removeFinalCta, onCancel, onSave, saving, editing, igProfile,
 }) {
   const [previewTab, setPreviewTab] = useState('DM');
+  const [mode, setMode] = useState('form'); // 'form' | 'flow'
 
   return (
     <div style={{ color: '#fff' }}>
@@ -523,7 +543,29 @@ function BuilderView({
         </div>
       </div>
 
-      {/* Two-column: left workflow form, right big live preview */}
+      {/* Top-level mode switch: step-by-step form vs. n8n-style flow view */}
+      <div style={{ display: 'flex', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 4, marginBottom: 20, width: 'fit-content' }}>
+        {[{ id: 'form', label: 'Form', icon: 'edit' }, { id: 'flow', label: 'Flow', icon: 'automation' }].map((m) => (
+          <div
+            key={m.id}
+            onClick={() => setMode(m.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 7, cursor: 'pointer',
+              background: mode === m.id ? IG_GRADIENT : 'transparent',
+              color: mode === m.id ? '#fff' : 'var(--muted)',
+              fontSize: 13, fontWeight: 700, transition: 'background 0.12s, color 0.12s',
+            }}
+          >
+            <Icon name={m.icon} size={14} />
+            {m.label}
+          </div>
+        ))}
+      </div>
+
+      {mode === 'flow' ? (
+        <FlowCanvas form={form} />
+      ) : (
+      /* Two-column: left workflow form, right big live preview */
       <div className="cmt-dm-layout" style={{ display: 'grid', gridTemplateColumns: '380px minmax(0, 1fr)', gap: 32, alignItems: 'flex-start' }}>
 
         {/* ── Left: workflow form (scrolls independently, like the preview stays fixed) ── */}
@@ -641,6 +683,39 @@ function BuilderView({
                 placeholder={"Here's your link 👇\n\nhttps://yourwebsite.com"}
                 style={{ ...inputStyle, resize: 'vertical' }}
               />
+
+              <div>
+                <label style={labelStyle}>Attach Media</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: form.finalMediaType !== 'NONE' ? 8 : 0 }}>
+                  {MEDIA_TYPES.map((m) => {
+                    const active = form.finalMediaType === m.value;
+                    return (
+                      <div
+                        key={m.value}
+                        onClick={() => setForm((f) => ({ ...f, finalMediaType: m.value, finalMediaUrl: m.value === 'NONE' ? '' : f.finalMediaUrl }))}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+                          background: active ? 'rgba(225,48,108,0.14)' : 'rgba(255,255,255,0.03)',
+                          border: `1.5px solid ${active ? '#E1306C' : 'rgba(255,255,255,0.08)'}`,
+                          fontSize: 12.5, fontWeight: 600, color: active ? '#fff' : 'var(--muted)',
+                        }}
+                      >
+                        <Icon name={m.icon} size={13} />
+                        {m.label}
+                      </div>
+                    );
+                  })}
+                </div>
+                {form.finalMediaType !== 'NONE' && (
+                  <input
+                    type="text" value={form.finalMediaUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, finalMediaUrl: e.target.value }))}
+                    placeholder={form.finalMediaType === 'YOUTUBE' ? 'https://youtube.com/watch?v=...' : `https://.../file.${form.finalMediaType === 'IMAGE' ? 'jpg' : form.finalMediaType === 'VIDEO' ? 'mp4' : 'pdf'}`}
+                    style={inputStyle}
+                  />
+                )}
+              </div>
+
               <div>
                 <label style={labelStyle}>CTA Buttons</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -709,6 +784,294 @@ function BuilderView({
           </div>
         </div>
       </div>
+      )}
+    </div>
+  );
+}
+
+const FLOW_NODE_W = 240;
+
+const truncate = (s, n) => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+const NODE_COLORS = ['#5B7CFA', '#2ED598', '#F5A623', '#A855F7', '#FB6B6B', '#5B9BFF'];
+const NODE_ICONS = ['zap', 'mail', 'send', 'filter', 'tag', 'clock', 'users', 'automation'];
+
+/**
+ * One node per section of the Form tab, in the same order they appear
+ * there — Automation Name → Select Posts & Reels → Comment Condition →
+ * Comment Reply → Opening DM ("They will get") → Final DM ("And then, they
+ * will get"), the latter folding in its media + CTA buttons. Laid out as a
+ * gentle zigzag like a real workflow canvas.
+ */
+const seedNodes = (form) => {
+  const postCount = form.selectedPostIds.length;
+  const ctaCount = form.finalCtaButtons.filter((b) => b.name?.trim() && b.url?.trim()).length;
+  const mediaLabel = form.finalMediaType !== 'NONE' && form.finalMediaUrl.trim()
+    ? ` · ${form.finalMediaType.charAt(0)}${form.finalMediaType.slice(1).toLowerCase()} attached`
+    : '';
+
+  return [
+    {
+      id: 'n1', x: 20, y: 140, icon: 'tag', color: '#5B7CFA', title: 'Automation Name',
+      subtitle: form.name.trim() || 'Untitled Automation',
+      hasInput: false, hasOutput: true,
+    },
+    {
+      id: 'n2', x: 300, y: 20, icon: 'image', color: '#A855F7', title: 'Select Posts & Reels',
+      subtitle: postCount === 0 ? 'All Posts' : `${postCount} post(s) selected`,
+      hasInput: true, hasOutput: true,
+    },
+    {
+      id: 'n3', x: 580, y: 200, icon: 'filter', color: '#F5A623', title: 'Comment Condition',
+      subtitle: form.commentMatchType === 'KEYWORDS' && form.keywordsText.trim()
+        ? `Keywords: ${truncate(form.keywordsText.trim(), 40)}`
+        : 'Any Comment',
+      hasInput: true, hasOutput: true,
+    },
+    {
+      id: 'n4', x: 860, y: 40, icon: 'send', color: '#5B9BFF', title: 'Comment Reply',
+      subtitle: form.commentReply.trim() ? truncate(form.commentReply.trim(), 50) : 'No reply set',
+      hasInput: true, hasOutput: true,
+    },
+    {
+      id: 'n5', x: 1140, y: 220, icon: 'mail', color: '#2ED598', title: 'Opening DM',
+      subtitle: form.openingMessage.trim() ? truncate(form.openingMessage.trim(), 60) : 'No message set',
+      hasInput: true, hasOutput: true,
+    },
+    {
+      id: 'n6', x: 1420, y: 80, icon: 'zap', color: '#FB6B6B', title: 'Final DM',
+      subtitle: (form.finalMessage.trim() ? truncate(form.finalMessage.trim(), 55) : 'No message set') + mediaLabel
+        + (ctaCount > 0 ? ` · ${ctaCount} CTA button(s)` : ''),
+      hasInput: true, hasOutput: false,
+    },
+  ];
+};
+
+/**
+ * n8n-style visual canvas: build your own flow from scratch — add nodes,
+ * rename them, drag them around, and draw connections by dragging between
+ * output/input port dots. This is presentation only: it starts seeded from
+ * the automation's configured steps as a helpful starting point, but every
+ * node here is yours to edit, add, or delete. Nothing here changes what
+ * actually gets saved — the form on the left still owns the real settings.
+ */
+function FlowCanvas({ form }) {
+  const canvasRef = useRef(null);
+  const [nodes, setNodes] = useState(() => seedNodes(form));
+  const [connections, setConnections] = useState([
+    { from: 'n1', to: 'n2' },
+    { from: 'n2', to: 'n3' },
+    { from: 'n3', to: 'n4' },
+    { from: 'n4', to: 'n5' },
+    { from: 'n5', to: 'n6' },
+  ]);
+  const [dragLine, setDragLine] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+
+  const nodeById = (id) => nodes.find((n) => n.id === id);
+  const portY = (id) => nodeById(id).y + 44;
+
+  const addNode = () => {
+    const idx = nodes.length;
+    const newNode = {
+      id: `n${Date.now()}`,
+      x: 40 + (idx % 3) * 260, y: 40 + Math.floor(idx / 3) * 160 + 320,
+      icon: NODE_ICONS[idx % NODE_ICONS.length], color: NODE_COLORS[idx % NODE_COLORS.length],
+      title: 'New Step', subtitle: 'Click to edit',
+      hasInput: true, hasOutput: true,
+    };
+    setNodes((prev) => [...prev, newNode]);
+    setEditingId(newNode.id);
+  };
+
+  const updateNode = (id, patch) => setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+
+  const removeNode = (id) => {
+    setNodes((prev) => prev.filter((n) => n.id !== id));
+    setConnections((prev) => prev.filter((c) => c.from !== id && c.to !== id));
+  };
+
+  function startNodeDrag(e, id) {
+    e.preventDefault();
+    const rect = canvasRef.current.getBoundingClientRect();
+    const start = nodeById(id);
+    const offsetX = e.clientX - rect.left - start.x;
+    const offsetY = e.clientY - rect.top - start.y;
+    function onMove(me) {
+      updateNode(id, { x: me.clientX - rect.left - offsetX, y: me.clientY - rect.top - offsetY });
+    }
+    function onUp() { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  function startConnectionDrag(e, fromId) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = canvasRef.current.getBoundingClientRect();
+    function onMove(me) {
+      setDragLine({ from: fromId, x: me.clientX - rect.left, y: me.clientY - rect.top });
+    }
+    function onUp(me) {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      const target = document.elementFromPoint(me.clientX, me.clientY);
+      const toId = target?.closest('[data-port-in]')?.getAttribute('data-port-in');
+      if (toId && toId !== fromId) {
+        setConnections((prev) => (prev.some((c) => c.from === fromId && c.to === toId) ? prev : [...prev, { from: fromId, to: toId }]));
+      }
+      setDragLine(null);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  const removeConnection = (idx) => setConnections((prev) => prev.filter((_, i) => i !== idx));
+
+  return (
+    <div className="card" style={{ padding: 18, width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Flow Builder</div>
+          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>Add your own nodes, drag to rearrange, drag a dot to connect · double-click a node to rename</div>
+        </div>
+        <button
+          onClick={addNode}
+          style={{
+            background: 'rgba(91,124,250,0.14)', color: '#7E97FF', border: '1px dashed rgba(91,124,250,0.4)',
+            borderRadius: 8, padding: '8px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+          }}
+        >
+          <Icon name="plus" size={13} /> Add Node
+        </button>
+      </div>
+      <div
+        ref={canvasRef}
+        style={{
+          position: 'relative', height: 520, borderRadius: 16,
+          border: '1px dashed var(--glass-brd)', overflow: 'auto',
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+          backgroundSize: '22px 22px', background: 'rgba(255,255,255,0.015)',
+        }}
+      >
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+          <defs>
+            <marker id="n8n-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#5B7CFA" />
+            </marker>
+          </defs>
+          {connections.map((c, idx) => {
+            if (!nodeById(c.from) || !nodeById(c.to)) return null;
+            const x1 = nodeById(c.from).x + FLOW_NODE_W, y1 = portY(c.from);
+            const x2 = nodeById(c.to).x, y2 = portY(c.to);
+            const dx = Math.max(Math.abs(x2 - x1) * 0.5, 50);
+            const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+            return (
+              <path
+                key={idx} d={d} fill="none" stroke="#5B7CFA" strokeWidth="2.5"
+                markerEnd="url(#n8n-arrow)" opacity="0.9"
+                style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                onClick={() => removeConnection(idx)}
+              />
+            );
+          })}
+          {dragLine && (() => {
+            const x1 = nodeById(dragLine.from).x + FLOW_NODE_W, y1 = portY(dragLine.from);
+            const dx = Math.max(Math.abs(dragLine.x - x1) * 0.5, 50);
+            const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${dragLine.x - dx} ${dragLine.y}, ${dragLine.x} ${dragLine.y}`;
+            return <path d={d} fill="none" stroke="#5B7CFA" strokeWidth="2" strokeDasharray="5 4" opacity="0.7" />;
+          })()}
+        </svg>
+
+        {nodes.map((node) => (
+          <FlowNode
+            key={node.id}
+            node={node}
+            editing={editingId === node.id}
+            onStartEdit={() => setEditingId(node.id)}
+            onStopEdit={() => setEditingId(null)}
+            onChange={(patch) => updateNode(node.id, patch)}
+            onRemove={() => removeNode(node.id)}
+            onDragStart={(e) => startNodeDrag(e, node.id)}
+            onConnectStart={(e) => startConnectionDrag(e, node.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FlowNode({ node, editing, onStartEdit, onStopEdit, onChange, onRemove, onDragStart, onConnectStart }) {
+  return (
+    <div
+      onMouseDown={editing ? undefined : onDragStart}
+      onDoubleClick={onStartEdit}
+      style={{
+        position: 'absolute', left: node.x, top: node.y, width: FLOW_NODE_W,
+        background: '#12141F', border: '1px solid var(--glass-brd)', borderRadius: 14,
+        padding: 14, cursor: editing ? 'default' : 'grab', boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+      }}
+    >
+      <button
+        onClick={onRemove}
+        title="Delete node"
+        style={{
+          position: 'absolute', top: -8, right: -8, width: 20, height: 20, borderRadius: '50%',
+          background: '#1c1c1e', border: '1px solid rgba(255,255,255,0.15)', color: '#EF4444',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0,
+        }}
+      >
+        <Icon name="x" size={11} />
+      </button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 8, background: `${node.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name={node.icon} size={14} style={{ color: node.color }} />
+        </div>
+        {editing ? (
+          <input
+            autoFocus
+            value={node.title}
+            onChange={(e) => onChange({ title: e.target.value })}
+            onKeyDown={(e) => e.key === 'Enter' && onStopEdit()}
+            style={{ ...inputStyle, padding: '4px 8px', fontSize: 12.5, fontWeight: 700, flex: 1 }}
+          />
+        ) : (
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>{node.title}</div>
+        )}
+      </div>
+
+      {editing ? (
+        <input
+          value={node.subtitle}
+          onChange={(e) => onChange({ subtitle: e.target.value })}
+          onKeyDown={(e) => e.key === 'Enter' && onStopEdit()}
+          onBlur={onStopEdit}
+          style={{ ...inputStyle, padding: '4px 8px', fontSize: 11.5 }}
+        />
+      ) : (
+        <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>{node.subtitle}</div>
+      )}
+
+      {node.hasInput && (
+        <div
+          data-port-in={node.id}
+          style={{
+            position: 'absolute', left: -6, top: 38, width: 12, height: 12, borderRadius: '50%',
+            background: '#0D0F1A', border: '2.5px solid #5B7CFA',
+          }}
+        />
+      )}
+      {node.hasOutput && (
+        <div
+          onMouseDown={onConnectStart}
+          style={{
+            position: 'absolute', right: -6, top: 38, width: 12, height: 12, borderRadius: '50%',
+            background: '#5B7CFA', border: '2.5px solid #0D0F1A', cursor: 'crosshair',
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -902,23 +1265,23 @@ function FlowPreview({ form, igProfile }) {
       {/* Chat body — full flow, stacked as a conversation */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '18px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* 1. Opening DM */}
+        {/* 1. Opening DM — text + button rendered together, one bubble */}
         {opening ? (
           <>
-            <BotBubble text={opening} />
-            {openingBtn && <ButtonRow label={openingBtn} />}
+            <MessageCard text={opening} buttons={openingBtn ? [openingBtn] : []} />
             <UserBubble text={openingBtn} />
           </>
         ) : (
           <EmptyHint text="Type your opening DM to preview it here..." />
         )}
 
-        {/* 2. Final DM */}
+        {/* 2. Final DM — optional media, text, and buttons together, one bubble */}
         {final ? (
-          <>
-            <BotBubble text={final} />
-            {finalCtas.map((btn, idx) => <ButtonRow key={idx} label={btn.name} />)}
-          </>
+          <MessageCard
+            text={final}
+            buttons={finalCtas.map((b) => b.name)}
+            media={form.finalMediaType !== 'NONE' && form.finalMediaUrl.trim() ? { type: form.finalMediaType, url: form.finalMediaUrl.trim() } : null}
+          />
         ) : (
           <EmptyHint text="Type your final DM to preview it here..." />
         )}
@@ -936,14 +1299,81 @@ function FlowPreview({ form, igProfile }) {
   );
 }
 
-function BotBubble({ text }) {
+/**
+ * One combined bubble matching how Instagram actually renders a button
+ * template: optional media on top, then text, then each button as a full-
+ * width row separated by a hairline — all in a single message, not floating
+ * pieces.
+ */
+function MessageCard({ text, buttons = [], media }) {
+  const cleanButtons = buttons.filter(Boolean);
+  if (!text && cleanButtons.length === 0 && !media) return null;
+
   return (
     <div style={{ alignSelf: 'flex-start', maxWidth: '82%' }}>
-      <div style={{ background: '#262626', color: '#fff', padding: '10px 15px', borderRadius: '18px 18px 18px 4px', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-        {text}
+      <div style={{ background: '#262626', borderRadius: '18px 18px 18px 4px', overflow: 'hidden' }}>
+        {media?.url && <MediaBlock type={media.type} url={media.url} />}
+        {text && (
+          <div style={{ padding: '10px 15px', color: '#fff', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+            {text}
+          </div>
+        )}
+        {cleanButtons.map((label, idx) => (
+          <div
+            key={idx}
+            style={{
+              padding: '10px 15px', color: '#5B9BFF', fontSize: 13.5, fontWeight: 600,
+              textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            {label}
+          </div>
+        ))}
       </div>
     </div>
   );
+}
+
+function MediaBlock({ type, url }) {
+  if (type === 'IMAGE') {
+    return (
+      <img
+        src={url} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }}
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
+    );
+  }
+  if (type === 'VIDEO') {
+    return (
+      <div style={{ position: 'relative', background: '#000', height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="video" size={20} style={{ color: '#fff' }} />
+        </div>
+      </div>
+    );
+  }
+  if (type === 'YOUTUBE') {
+    return (
+      <div style={{ position: 'relative', background: '#111', height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 52, height: 36, borderRadius: 8, background: '#FF0000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 0, height: 0, borderTop: '8px solid transparent', borderBottom: '8px solid transparent', borderLeft: '13px solid #fff', marginLeft: 3 }} />
+        </div>
+      </div>
+    );
+  }
+  if (type === 'FILE') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(255,255,255,0.04)' }}>
+        <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(91,124,250,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name="file" size={16} style={{ color: '#7E97FF' }} />
+        </div>
+        <div style={{ fontSize: 12, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {url.split('/').pop() || url}
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
 
 function UserBubble({ text }) {
@@ -951,19 +1381,6 @@ function UserBubble({ text }) {
     <div style={{ alignSelf: 'flex-end', maxWidth: '75%' }}>
       <div style={{ background: IG_GRADIENT, color: '#fff', padding: '9px 15px', borderRadius: '18px 18px 4px 18px', fontSize: 13.5, fontWeight: 600 }}>
         {text}
-      </div>
-    </div>
-  );
-}
-
-function ButtonRow({ label }) {
-  return (
-    <div style={{ alignSelf: 'flex-start', maxWidth: '82%' }}>
-      <div style={{
-        background: '#262626', color: '#5B9BFF', padding: '10px 15px', borderRadius: 12,
-        fontSize: 13.5, fontWeight: 600, textAlign: 'center', marginTop: -2,
-      }}>
-        {label}
       </div>
     </div>
   );
