@@ -4,6 +4,7 @@ import AutoReplySettings from '../models/AutoReplySettings.js';
 import AutoReplyLog from '../models/AutoReplyLog.js';
 import CommentAutomation from '../models/CommentAutomation.js';
 import CommentAutomationLog from '../models/CommentAutomationLog.js';
+import FollowerSnapshot from '../models/FollowerSnapshot.js';
 
 /**
  * Matches an incoming comment against the user's Live comment-automations,
@@ -59,6 +60,40 @@ async function handleCommentEvent({ igBusinessId, conn, accessToken, commentValu
 
     // Only the first matching automation runs for a given comment.
     return;
+  }
+}
+
+/**
+ * Captures one followers_count snapshot for a connection, at most once per
+ * UTC calendar day (repeated calls the same day are a no-op) so a snapshot
+ * job that runs hourly still only ever produces one point per day.
+ */
+async function captureFollowerSnapshot(conn) {
+  const igUserId = conn.instagramBusinessId || conn.instagramUserId;
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const already = await FollowerSnapshot.findOne({ userId: conn.userId, capturedAt: { $gte: startOfDay } });
+  if (already) return already;
+
+  const followersCount = await instagramService.fetchFollowersCount(conn.accessToken, igUserId);
+  if (followersCount === null) return null;
+
+  return FollowerSnapshot.create({ userId: conn.userId, instagramUserId: igUserId, followersCount });
+}
+
+/**
+ * Runs captureFollowerSnapshot for every connected IG account. Called on a
+ * recurring timer from index.js.
+ */
+export async function captureFollowerSnapshotsForAllConnections() {
+  const connections = await InstagramConnection.find({ connected: true });
+  for (const conn of connections) {
+    try {
+      await captureFollowerSnapshot(conn);
+    } catch (err) {
+      console.warn(`Notice: follower snapshot failed for connection ${conn._id}:`, err.message);
+    }
   }
 }
 
@@ -320,6 +355,42 @@ export const instagramController = {
     } catch (error) {
       console.error("Failed to fetch media:", error);
       res.status(500).json({ success: false, message: 'Failed to fetch media.', error: error.message });
+    }
+  },
+
+  /**
+   * GET /api/instagram/follower-trend
+   * Returns recent daily followers_count snapshots plus the net change
+   * since the previous snapshot, so the dashboard can flag "you lost N
+   * followers since yesterday" without ever needing an individual follower
+   * list (which the official Graph API doesn't expose).
+   */
+  async getFollowerTrend(req, res) {
+    try {
+      const conn = await InstagramConnection.findOne({ userId: req.userId });
+      if (!conn) return res.status(404).json({ success: false, message: 'No connected Instagram account found.' });
+
+      // Capture today's point on demand too, in case the recurring job
+      // hasn't run yet since this account connected.
+      await captureFollowerSnapshot(conn);
+
+      const snapshots = await FollowerSnapshot
+        .find({ userId: req.userId })
+        .sort({ capturedAt: 1 })
+        .limit(90);
+
+      const latest = snapshots[snapshots.length - 1] || null;
+      const previous = snapshots[snapshots.length - 2] || null;
+      const change = latest && previous ? latest.followersCount - previous.followersCount : 0;
+
+      res.json({
+        success: true,
+        snapshots: snapshots.map((s) => ({ followersCount: s.followersCount, capturedAt: s.capturedAt })),
+        currentFollowersCount: latest?.followersCount ?? null,
+        changeSincePrevious: change,
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Failed to fetch follower trend.', error: error.message });
     }
   },
 

@@ -338,6 +338,36 @@ export const instagramService = {
   },
 
   /**
+   * Fetches the connected account's current follower count. The Graph API
+   * only exposes the aggregate count for an IG Business/Creator account —
+   * there is no endpoint that lists individual followers — so this is the
+   * basis for follower-loss tracking without scraping.
+   */
+  async fetchFollowersCount(userAccessToken, instagramUserId) {
+    try {
+      const res = await axios.get(`${INSTAGRAM_GRAPH_URL}/me`, {
+        params: { fields: 'followers_count', access_token: userAccessToken },
+      });
+      if (typeof res.data?.followers_count === 'number') return res.data.followers_count;
+    } catch (err) {
+      console.warn("Notice: Fetching followers_count via IG Graph API failed:", err.response?.data || err.message);
+    }
+
+    if (instagramUserId) {
+      try {
+        const res2 = await axios.get(`${FACEBOOK_GRAPH_URL}/${instagramUserId}`, {
+          params: { fields: 'followers_count', access_token: userAccessToken },
+        });
+        if (typeof res2.data?.followers_count === 'number') return res2.data.followers_count;
+      } catch (err2) {
+        console.warn("Notice: Fetching followers_count via Meta Graph API fallback failed:", err2.response?.data || err2.message);
+      }
+    }
+
+    return null;
+  },
+
+  /**
    * Sends an automated Direct Message on Instagram.
    */
   async sendDirectMessage(igBusinessId, recipientId, messageText, accessToken) {

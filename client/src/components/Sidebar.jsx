@@ -23,7 +23,7 @@ const BOTTOM_NAV = [
 ];
 
 export default function Sidebar() {
-  const { state, goPage } = useApp();
+  const { state, goPage, dispatch } = useApp();
   const collapsed = state.sidebarCollapsed;
 
   const NavItem = ({ item }) => {
@@ -85,17 +85,41 @@ export default function Sidebar() {
         top: 60,
         transition: 'width 0.18s ease',
         overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
       }}
     >
-      <SectionLabel label="Workspace" />
-      {NAV.map((item) => <NavItem key={item.id} item={item} />)}
+      <div>
+        <SectionLabel label="Workspace" />
+        {NAV.map((item) => <NavItem key={item.id} item={item} />)}
 
-      {BOTTOM_NAV.length > 0 && (
-        <>
-          <SectionLabel label="Admin" />
-          {BOTTOM_NAV.map((item) => <NavItem key={item.id} item={item} />)}
-        </>
-      )}
+        {BOTTOM_NAV.length > 0 && (
+          <>
+            <SectionLabel label="Admin" />
+            {BOTTOM_NAV.map((item) => <NavItem key={item.id} item={item} />)}
+          </>
+        )}
+      </div>
+
+      <div
+        onClick={() => dispatch({ type: 'SET_ACTIVE_ACCOUNT', payload: null })}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 11, padding: '10px 11px',
+          borderRadius: 11, cursor: 'pointer',
+          color: 'var(--muted)',
+          fontWeight: 600, fontSize: 13.8,
+          transition: 'all 0.12s',
+          whiteSpace: 'nowrap', overflow: 'hidden',
+          border: '1px dashed rgba(255,255,255,0.12)',
+          marginTop: 'auto',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted)'; }}
+      >
+        <span style={{ flexShrink: 0, fontSize: 16 }}>🏡</span>
+        {!collapsed && <span>Back to Home</span>}
+      </div>
     </div>
   );
 }

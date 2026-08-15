@@ -13,6 +13,7 @@ import campaignRoutes from './routes/campaigns.js';
 import analyticsRoutes from './routes/analytics.js';
 import instagramRoutes from './routes/instagram.js';
 import webhookRoutes from './routes/webhooks.js';
+import { captureFollowerSnapshotsForAllConnections } from './controllers/instagramController.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
@@ -113,6 +114,15 @@ async function startServer() {
     console.log(`   Client URL  : ${process.env.CLIENT_URL}`);
     console.log(`   Health      : http://localhost:${PORT}/health\n`);
   });
+
+  // Recurring follower-count snapshot job (official Graph API only — see
+  // FollowerSnapshot model for why this is a count, not a follower list).
+  // captureFollowerSnapshot() itself no-ops after the first successful run
+  // each UTC day, so an hourly tick is just "don't miss the day".
+  captureFollowerSnapshotsForAllConnections().catch((err) => console.warn('Follower snapshot job failed:', err.message));
+  setInterval(() => {
+    captureFollowerSnapshotsForAllConnections().catch((err) => console.warn('Follower snapshot job failed:', err.message));
+  }, 60 * 60 * 1000);
 }
 
 startServer();

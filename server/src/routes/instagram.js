@@ -14,6 +14,7 @@ router.get('/profile', requireAuth, instagramController.getProfile);
 
 // Media & Auto Reply Routes
 router.get('/media', requireAuth, instagramController.getMedia);
+router.get('/follower-trend', requireAuth, instagramController.getFollowerTrend);
 router.get('/auto-reply-settings', requireAuth, instagramController.getAutoReplySettings);
 router.put('/auto-reply-settings', requireAuth, instagramController.saveAutoReplySettings);
 

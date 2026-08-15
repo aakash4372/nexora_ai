@@ -120,7 +120,7 @@ export default function Topbar() {
           </div>
         }
       >
-        <DdItem icon="building" label="Switch Account" onClick={() => dispatch({ type: 'SET_ACTIVE_ACCOUNT', payload: null })} />
+        <DdItem icon="building" label="Back to home" onClick={() => dispatch({ type: 'SET_ACTIVE_ACCOUNT', payload: null })} />
         <DdSep />
         <DdItem icon="plus" label="Create workspace" onClick={() => dispatch({ type: 'SET_ACTIVE_ACCOUNT', payload: null })} />
       </Dropdown>

@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { instagramAPI } from '../lib/api';
 import Icon from '../components/Icon';
 
 const STATS = [
@@ -26,6 +28,13 @@ export default function Dashboard() {
 
   const unread = state.conversations.reduce((a, c) => a + c.unread, 0);
   const liveAutos = state.automations.filter((a) => a.status === 'Live').length;
+
+  const [followerTrend, setFollowerTrend] = useState(null);
+  useEffect(() => {
+    instagramAPI.getFollowerTrend()
+      .then((res) => setFollowerTrend(res.data))
+      .catch(() => setFollowerTrend(null)); // no connected IG account yet — hide the card
+  }, []);
 
   return (
     <div>
@@ -153,6 +162,20 @@ export default function Dashboard() {
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.label}</div>
             </div>
           ))}
+
+          {followerTrend && followerTrend.currentFollowersCount !== null && (
+            <div className="card" style={{ textAlign: 'center', padding: '18px 24px' }}>
+              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text)' }}>
+                {followerTrend.currentFollowersCount.toLocaleString()}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>IG Followers</div>
+              {followerTrend.changeSincePrevious !== 0 && (
+                <div className={`stat-delta ${followerTrend.changeSincePrevious > 0 ? 'up' : 'down'}`} style={{ marginTop: 8, display: 'inline-block' }}>
+                  {followerTrend.changeSincePrevious > 0 ? '+' : ''}{followerTrend.changeSincePrevious} since last check
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

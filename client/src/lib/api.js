@@ -102,6 +102,8 @@ export const instagramAPI = {
   // Keyed server-side by the authenticated user (JWT), not workspace name.
   getAutoReplySettings: () => api.get('/api/instagram/auto-reply-settings'),
   saveAutoReplySettings: (data) => api.put('/api/instagram/auto-reply-settings', data),
+  // Keyed server-side by the authenticated user (JWT), not workspace name.
+  getFollowerTrend: () => api.get('/api/instagram/follower-trend'),
 };
 
 /* ─── Comment-to-DM Automations ──────────────────────────── */

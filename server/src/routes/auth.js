@@ -148,7 +148,9 @@ router.post('/google', async (req, res) => {
       await user.save();
     }
 
-    const jwtToken = Buffer.from(JSON.stringify({ id: user._id, email: user.email })).toString('base64');
+    const expiryDays = parseInt(process.env.SESSION_EXPIRY_DAYS || '30', 10);
+    const exp = Date.now() + expiryDays * 24 * 60 * 60 * 1000;
+    const jwtToken = Buffer.from(JSON.stringify({ id: user._id, email: user.email, exp })).toString('base64');
     const initials = user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 
     res.json({

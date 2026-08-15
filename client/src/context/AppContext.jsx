@@ -7,7 +7,14 @@ const initialState = {
   screen: 'login', // login | register | forgot | reset
   onboarded: false,
   onboardingStep: 1,
-  activeAccount: null,
+  activeAccount: (() => {
+    try {
+      const stored = localStorage.getItem('nexora_active_account');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  })(),
 
   // App
   page: 'dashboard',
@@ -15,7 +22,15 @@ const initialState = {
 
   // User & workspace
   user: { name: 'Aarav Sharma', email: 'aarav@nexoralabs.io', initials: 'AS' },
-  workspace: { name: 'Nexora Demo Co', plan: 'Pro' },
+  workspace: (() => {
+    try {
+      const stored = localStorage.getItem('nexora_active_account');
+      if (stored) {
+        return { name: JSON.parse(stored).name, plan: 'Pro' };
+      }
+    } catch (e) {}
+    return { name: 'Nexora Demo Co', plan: 'Pro' };
+  })(),
 
   // Data
   conversations: [
@@ -103,7 +118,22 @@ function reducer(state, action) {
     case 'SET_ONBOARDED': return { ...state, onboarded: action.payload };
     case 'SET_ONBOARDING_STEP': return { ...state, onboardingStep: action.payload };
     case 'SET_PAGE': return { ...state, page: action.payload };
-    case 'SET_ACTIVE_ACCOUNT': return { ...state, activeAccount: action.payload };
+    case 'SET_ACTIVE_ACCOUNT': {
+      if (action.payload) {
+        localStorage.setItem('nexora_active_account', JSON.stringify(action.payload));
+        return {
+          ...state,
+          activeAccount: action.payload,
+          workspace: { ...state.workspace, name: action.payload.name }
+        };
+      } else {
+        localStorage.removeItem('nexora_active_account');
+        return {
+          ...state,
+          activeAccount: null
+        };
+      }
+    }
     case 'TOGGLE_SIDEBAR': return { ...state, sidebarCollapsed: !state.sidebarCollapsed };
     case 'SET_INBOX_FILTER': return { ...state, inboxFilter: action.payload };
     case 'SET_SELECTED_CONV': return { ...state, selectedConvId: action.payload };
