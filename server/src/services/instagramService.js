@@ -373,13 +373,21 @@ export const instagramService = {
    * Used to gate "Follow to get Link" comment/DM automations.
    */
   async checkUserFollowStatus(igScopedId, pageAccessToken) {
-    if (!igScopedId || !pageAccessToken) return false;
+    console.log(`🔍 checkUserFollowStatus called for igScopedId=${igScopedId} | tokenPresent=${!!pageAccessToken} | tokenPrefix=${pageAccessToken ? pageAccessToken.slice(0, 8) + '…' : 'n/a'}`);
+
+    if (!igScopedId || !pageAccessToken) {
+      console.warn(`⚠️ checkUserFollowStatus: missing igScopedId or pageAccessToken — returning false.`);
+      return false;
+    }
 
     try {
       const res = await axios.get(`${FACEBOOK_GRAPH_URL}/${igScopedId}`, {
         params: { fields: 'is_user_follow_business,username', access_token: pageAccessToken },
       });
-      return res.data?.is_user_follow_business === true;
+      console.log(`📥 checkUserFollowStatus raw Graph API response for ${igScopedId}:`, JSON.stringify(res.data));
+      const isFollowing = res.data?.is_user_follow_business === true;
+      console.log(`➡️ checkUserFollowStatus resolved is_user_follow_business=${res.data?.is_user_follow_business} → isFollowing=${isFollowing}`);
+      return isFollowing;
     } catch (err) {
       console.warn(`Notice: checkUserFollowStatus failed for ${igScopedId}:`, err.response?.data || err.message);
       return false;

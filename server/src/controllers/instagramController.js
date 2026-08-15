@@ -135,18 +135,25 @@ const GRAPH_MEDIA_TYPE = { IMAGE: 'image', VIDEO: 'video', FILE: 'file' };
 async function sendAutomationFinalMessage(igBusinessId, recipient, automation, accessToken) {
   const graphType = GRAPH_MEDIA_TYPE[automation.finalMediaType];
   if (graphType && automation.finalMediaUrl) {
-    await instagramService.sendMediaMessage(igBusinessId, recipient, graphType, automation.finalMediaUrl, accessToken);
+    const mediaSent = await instagramService.sendMediaMessage(igBusinessId, recipient, graphType, automation.finalMediaUrl, accessToken);
+    if (!mediaSent) {
+      console.error(`❌ sendAutomationFinalMessage: media attachment (${graphType}) failed for automation ${automation._id}, recipient ${JSON.stringify(recipient)}.`);
+    }
   }
 
   const messageText = automation.finalMediaType === 'YOUTUBE' && automation.finalMediaUrl
     ? `${automation.finalMessage}\n\n${automation.finalMediaUrl}`
     : automation.finalMessage;
 
-  if (automation.finalCtaButtons.length > 0) {
-    await instagramService.sendButtonMessage(igBusinessId, recipient, messageText, automation.finalCtaButtons, accessToken);
-  } else {
-    await instagramService.sendDirectMessage(igBusinessId, recipient, messageText, accessToken);
+  const sent = automation.finalCtaButtons.length > 0
+    ? await instagramService.sendButtonMessage(igBusinessId, recipient, messageText, automation.finalCtaButtons, accessToken)
+    : await instagramService.sendDirectMessage(igBusinessId, recipient, messageText, accessToken);
+
+  if (!sent) {
+    console.error(`❌ sendAutomationFinalMessage: final DM failed for automation ${automation._id}, recipient ${JSON.stringify(recipient)}.`);
   }
+
+  return sent;
 }
 
 /**
@@ -170,28 +177,59 @@ async function handleAutomationPostback({ igBusinessId, conn, accessToken, sende
 /**
  * Re-checks follow status when the user taps "I'm Following Now ✅" (quick
  * reply or postback) or replies "DONE" to a follow-gate prompt. Sends the
- * final resource link if they now follow, otherwise a friendly reminder.
+ * final resource link if they now follow, otherwise a friendly reminder
+ * (with the same quick-reply button so they can retry).
+ *
+ * The follow edge can take a few seconds to propagate on Meta's side after
+ * the user taps Follow, so a single `false` isn't trusted outright — this
+ * retries the check once after a short delay before falling back to the
+ * reminder.
  */
 async function handleFollowVerification({ igBusinessId, conn, accessToken, senderId, automationId }) {
+  console.log(`🔁 handleFollowVerification called with:`, JSON.stringify({ igBusinessId, userId: conn?.userId, senderId, automationId }));
+
   const automation = await CommentAutomation.findOne({ _id: automationId, userId: conn.userId });
-  if (!automation) return;
+  if (!automation) {
+    console.warn(`⚠️ handleFollowVerification: no automation found for id=${automationId}, userId=${conn.userId} — aborting.`);
+    return;
+  }
 
-  console.log(`🔁 Re-checking follow status for ${senderId} (automation ${automationId})`);
+  // Re-fetch the connection from the DB rather than trusting the token
+  // captured at the top of the webhook loop, in case it was refreshed since.
+  const freshConn = await InstagramConnection.findOne({ _id: conn._id }) || conn;
+  const pageAccessToken = freshConn.accessToken || accessToken;
+  console.log(`🔑 Using pageAccessToken for connection ${freshConn._id} (username=@${freshConn.username}, tokenPrefix=${pageAccessToken ? pageAccessToken.slice(0, 8) + '…' : 'n/a'})`);
 
-  const isFollowing = await instagramService.checkUserFollowStatus(senderId, accessToken);
+  let isFollowing = await instagramService.checkUserFollowStatus(senderId, pageAccessToken);
+
+  // Meta's `is_user_follow_business` can lag a few seconds behind an actual
+  // follow action — give it one short retry before treating it as "not
+  // following yet".
+  if (!isFollowing) {
+    console.log(`⏳ First follow check for ${senderId} returned false — retrying once in 2s in case of propagation lag.`);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    isFollowing = await instagramService.checkUserFollowStatus(senderId, pageAccessToken);
+    console.log(`🔁 Retry follow check for ${senderId} → isFollowing=${isFollowing}`);
+  }
 
   if (isFollowing) {
     console.log(`✅ ${senderId} is now following — sending resource link.`);
-    await sendAutomationFinalMessage(igBusinessId, senderId, automation, accessToken);
+    const sent = await sendAutomationFinalMessage(igBusinessId, senderId, automation, pageAccessToken);
+    if (sent === false) {
+      console.error(`❌ Failed to send resource link (final message) to ${senderId} for automation ${automationId}.`);
+    }
   } else {
-    console.log(`⏳ ${senderId} still isn't following — sending reminder.`);
-    await instagramService.sendQuickReplyDM(
+    console.log(`⏳ ${senderId} still isn't following after retry — sending reminder with retry button.`);
+    const reminderSent = await instagramService.sendQuickReplyDM(
       igBusinessId,
       senderId,
       `Looks like you haven't followed us yet 🙏 Please follow our page first, then tap the button below again.`,
       [{ title: "I'm Following Now ✅", payload: `${FOLLOW_VERIFY_PAYLOAD_PREFIX}:${automation._id}` }],
-      accessToken
+      pageAccessToken
     );
+    if (!reminderSent) {
+      console.error(`❌ Failed to send follow-reminder DM to ${senderId} for automation ${automationId}.`);
+    }
   }
 }
 
@@ -624,82 +662,102 @@ export const instagramController = {
       // every time (no cooldown).
       console.log(`🔎 Connection userId="${conn.userId}" | Settings found: ${!!settings} | 24h-cooldown mode: ${settings?.enabled} | active template: ${!!activeTemplate}`);
 
-      // Collect DM events from both the `changes` (messages field) and
-      // legacy `messaging` array shapes Meta may send.
-      const dmEvents = [];
+      // Normalize DM-ish events from both delivery shapes Meta uses into one
+      // list, *before* running postback/quick-reply detection below.
+      // Direct Instagram Business Login accounts deliver messages/postbacks/
+      // quick-replies via `entry[].changes[]` with field 'messages', shaped
+      // as `{ sender, recipient, timestamp, message: {...} }` under `.value`
+      // — the same shape as a classic Messenger `entry[].messaging[]` item,
+      // just nested one level deeper. Accounts connected via a linked
+      // Facebook Page instead use the legacy `messaging` array directly.
+      // The follow-gate button/quick-reply/"DONE" handling below previously
+      // only inspected `item.messaging`, so on connections that deliver via
+      // `changes` (the common case for direct IG Business Login) the
+      // VERIFY_FOLLOW_AND_SEND_LINK tap was silently falling through to the
+      // plain-DM path and never reached handleFollowVerification.
+      const messagingLikeEvents = [];
 
       if (Array.isArray(item.changes)) {
         for (const changeEvent of item.changes) {
           if (changeEvent.field === 'messages' || changeEvent.field === 'messaging') {
-            const dmValue = changeEvent.value;
-            dmEvents.push({
-              senderId: dmValue?.sender?.id || dmValue?.from?.id,
-              text: dmValue?.message?.text || dmValue?.text || '',
-              isEcho: !!dmValue?.message?.is_echo,
-            });
+            messagingLikeEvents.push(changeEvent.value);
           }
         }
       }
-
       if (Array.isArray(item.messaging)) {
-        for (const messagingEvent of item.messaging) {
-          // Postback taps continue a comment-automation's DM flow — handle
-          // separately and don't also treat them as a plain DM. A
-          // VERIFY_FOLLOW_AND_SEND_LINK postback re-checks follow status
-          // instead of the plain CMTAUTO "opening" step.
-          if (messagingEvent.postback && messagingEvent.sender) {
-            const payload = messagingEvent.postback.payload || '';
-            if (payload.startsWith(`${FOLLOW_VERIFY_PAYLOAD_PREFIX}:`)) {
-              await handleFollowVerification({
-                igBusinessId, conn, accessToken,
-                senderId: messagingEvent.sender.id,
-                automationId: payload.split(':')[1],
-              });
-            } else {
-              await handleAutomationPostback({
-                igBusinessId, conn, accessToken,
-                senderId: messagingEvent.sender.id,
-                payload,
-              });
-            }
-            continue;
-          }
+        messagingLikeEvents.push(...item.messaging);
+      }
 
-          // Quick-reply chip taps arrive as a regular message carrying a
-          // `quick_reply.payload` — "I'm Following Now ✅" re-checks follow
-          // status the same way the postback variant does.
-          const quickReplyPayload = messagingEvent.message?.quick_reply?.payload;
-          if (quickReplyPayload?.startsWith(`${FOLLOW_VERIFY_PAYLOAD_PREFIX}:`) && messagingEvent.sender) {
+      console.log(`📬 Normalized ${messagingLikeEvents.length} messaging-like event(s) for igBusinessId ${igBusinessId}:`, JSON.stringify(messagingLikeEvents, null, 2));
+
+      const dmEvents = [];
+
+      for (const messagingEvent of messagingLikeEvents) {
+        if (!messagingEvent) continue;
+
+        const senderId = messagingEvent.sender?.id || messagingEvent.from?.id;
+        const eventText = messagingEvent.message?.text || messagingEvent.text || '';
+
+        // Postback taps continue a comment-automation's DM flow — handle
+        // separately and don't also treat them as a plain DM. A
+        // VERIFY_FOLLOW_AND_SEND_LINK postback re-checks follow status
+        // instead of the plain CMTAUTO "opening" step.
+        const postbackPayload = messagingEvent.postback?.payload || messagingEvent.message?.postback?.payload;
+        if (postbackPayload && senderId) {
+          console.log(`👆 Postback payload "${postbackPayload}" from ${senderId}`);
+          if (postbackPayload.startsWith(`${FOLLOW_VERIFY_PAYLOAD_PREFIX}:`)) {
             await handleFollowVerification({
               igBusinessId, conn, accessToken,
-              senderId: messagingEvent.sender.id,
+              senderId,
+              automationId: postbackPayload.split(':')[1],
+            });
+          } else {
+            await handleAutomationPostback({
+              igBusinessId, conn, accessToken,
+              senderId,
+              payload: postbackPayload,
+            });
+          }
+          continue;
+        }
+
+        // Quick-reply chip taps arrive as a regular message carrying a
+        // `quick_reply.payload` — "I'm Following Now ✅" re-checks follow
+        // status the same way the postback variant does.
+        const quickReplyPayload = messagingEvent.message?.quick_reply?.payload;
+        if (quickReplyPayload && senderId) {
+          console.log(`👆 Quick-reply payload "${quickReplyPayload}" from ${senderId}`);
+          if (quickReplyPayload.startsWith(`${FOLLOW_VERIFY_PAYLOAD_PREFIX}:`)) {
+            await handleFollowVerification({
+              igBusinessId, conn, accessToken,
+              senderId,
               automationId: quickReplyPayload.split(':')[1],
             });
             continue;
           }
+        }
 
-          // A free-text "DONE" reply carries no payload — resolve it back to
-          // whichever follow-gate automation most recently DM'd this sender.
-          if (messagingEvent.message?.text?.trim().toUpperCase() === 'DONE' && messagingEvent.sender) {
-            const senderId = messagingEvent.sender.id;
-            const recentLog = await CommentAutomationLog.findOne({ senderId }).sort({ createdAt: -1 });
-            if (recentLog) {
-              await handleFollowVerification({
-                igBusinessId, conn, accessToken,
-                senderId,
-                automationId: recentLog.automationId,
-              });
-              continue;
-            }
-          }
-
-          if (messagingEvent.message && messagingEvent.sender) {
-            dmEvents.push({
-              senderId: messagingEvent.sender.id,
-              text: messagingEvent.message.text || '',
-              isEcho: !!messagingEvent.message.is_echo,
+        // A free-text "DONE" reply carries no payload — resolve it back to
+        // whichever follow-gate automation most recently DM'd this sender.
+        if (eventText.trim().toUpperCase() === 'DONE' && senderId) {
+          const recentLog = await CommentAutomationLog.findOne({ senderId }).sort({ createdAt: -1 });
+          console.log(`🔤 "DONE" reply from ${senderId} — resolved automation log:`, recentLog ? String(recentLog.automationId) : 'none found');
+          if (recentLog) {
+            await handleFollowVerification({
+              igBusinessId, conn, accessToken,
+              senderId,
+              automationId: recentLog.automationId,
             });
+            continue;
           }
+        }
+
+        if (messagingEvent.message && senderId) {
+          dmEvents.push({
+            senderId,
+            text: eventText,
+            isEcho: !!messagingEvent.message.is_echo,
+          });
         }
       }
 
