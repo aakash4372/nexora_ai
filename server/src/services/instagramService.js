@@ -368,6 +368,35 @@ export const instagramService = {
   },
 
   /**
+   * Checks whether an IGSID currently follows the connected business
+   * account, via the User Profile API's `is_user_follow_business` field.
+   * Used to gate "Follow to get Link" comment/DM automations.
+   */
+  async checkUserFollowStatus(igScopedId, pageAccessToken) {
+    if (!igScopedId || !pageAccessToken) return false;
+
+    try {
+      const res = await axios.get(`${FACEBOOK_GRAPH_URL}/${igScopedId}`, {
+        params: { fields: 'is_user_follow_business,username', access_token: pageAccessToken },
+      });
+      return res.data?.is_user_follow_business === true;
+    } catch (err) {
+      console.warn(`Notice: checkUserFollowStatus failed for ${igScopedId}:`, err.response?.data || err.message);
+      return false;
+    }
+  },
+
+  /**
+   * Normalizes a recipient into the Graph API's `recipient` shape: a plain
+   * string is treated as an IGSID (`{ id }`); an object (e.g. `{ comment_id }`
+   * for a Private Reply, before the user has ever messaged the account) is
+   * passed through as-is.
+   */
+  _toRecipient(recipientOrId) {
+    return typeof recipientOrId === 'string' ? { id: recipientOrId } : recipientOrId;
+  },
+
+  /**
    * Sends an automated Direct Message on Instagram.
    */
   async sendDirectMessage(igBusinessId, recipientId, messageText, accessToken) {
@@ -380,7 +409,7 @@ export const instagramService = {
       return false;
     }
 
-    const recipient = { id: recipientId };
+    const recipient = this._toRecipient(recipientId);
 
     // 1. Instagram Graph API (correct endpoint/token pairing for accounts
     //    connected via direct Instagram Business Login).
@@ -467,7 +496,7 @@ export const instagramService = {
     if (!recipientId || !accessToken || !igBusinessId || !mediaUrl) return false;
 
     const payload = {
-      recipient: { id: recipientId },
+      recipient: this._toRecipient(recipientId),
       message: {
         attachment: {
           type: mediaType, // 'image' | 'video' | 'file'
@@ -476,7 +505,7 @@ export const instagramService = {
       },
     };
 
-    return this._sendMessagePayload(igBusinessId, payload, accessToken, `${mediaType} attachment to ${recipientId}`);
+    return this._sendMessagePayload(igBusinessId, payload, accessToken, `${mediaType} attachment to ${JSON.stringify(recipientId)}`);
   },
 
   /**
@@ -488,7 +517,7 @@ export const instagramService = {
     if (!recipientId || !accessToken || !igBusinessId || !ctaButtons?.length) return false;
 
     const payload = {
-      recipient: { id: recipientId },
+      recipient: this._toRecipient(recipientId),
       message: {
         attachment: {
           type: 'template',
@@ -501,7 +530,31 @@ export const instagramService = {
       },
     };
 
-    return this._sendMessagePayload(igBusinessId, payload, accessToken, `CTA button message to ${recipientId}`);
+    return this._sendMessagePayload(igBusinessId, payload, accessToken, `CTA button message to ${JSON.stringify(recipientId)}`);
+  },
+
+  /**
+   * Sends a DM with quick-reply chips (each `{ title, payload }`) that
+   * appear above the composer and disappear once tapped — used for the
+   * "I'm Following Now ✅" follow-gate confirmation step. `recipientOrId`
+   * accepts a plain IGSID or a Private Reply recipient (e.g. `{ comment_id }`).
+   */
+  async sendQuickReplyDM(igBusinessId, recipientOrId, messageText, quickReplies, accessToken) {
+    if (!accessToken || !igBusinessId || !recipientOrId || !messageText?.trim() || !quickReplies?.length) return false;
+
+    const payload = {
+      recipient: this._toRecipient(recipientOrId),
+      message: {
+        text: messageText.trim(),
+        quick_replies: quickReplies.slice(0, 13).map((q) => ({
+          content_type: 'text',
+          title: q.title,
+          payload: q.payload,
+        })),
+      },
+    };
+
+    return this._sendMessagePayload(igBusinessId, payload, accessToken, `Quick-reply DM to ${JSON.stringify(recipientOrId)}`);
   },
 
   /**

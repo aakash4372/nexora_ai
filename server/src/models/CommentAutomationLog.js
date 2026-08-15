@@ -12,6 +12,12 @@ const commentAutomationLogSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // The commenter's IGSID. Populated for requireFollow automations so a
+  // free-text "DONE" reply (no quick-reply payload attached) can be
+  // resolved back to the automation that's awaiting follow verification.
+  senderId: {
+    type: String,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -19,6 +25,7 @@ const commentAutomationLogSchema = new mongoose.Schema({
 });
 
 commentAutomationLogSchema.index({ automationId: 1, commentId: 1 }, { unique: true });
+commentAutomationLogSchema.index({ senderId: 1, createdAt: -1 });
 
 const CommentAutomationLog = mongoose.model('CommentAutomationLog', commentAutomationLogSchema);
 export default CommentAutomationLog;

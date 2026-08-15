@@ -49,6 +49,7 @@ function cleanPayload(body, userId) {
     commentReply: body.commentReply.trim(),
     openingMessage: body.openingMessage.trim(),
     openingButtonName: body.openingButtonName?.trim() || 'Send me the link',
+    requireFollow: !!body.requireFollow,
     finalMessage: body.finalMessage.trim(),
     finalCtaButtons: Array.isArray(body.finalCtaButtons)
       ? body.finalCtaButtons.filter((b) => b?.name && b?.url).map((b) => ({ name: b.name.trim(), url: b.url.trim() })).slice(0, 3)

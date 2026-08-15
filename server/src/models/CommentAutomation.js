@@ -65,6 +65,16 @@ const commentAutomationSchema = new mongoose.Schema({
     default: 'Send me the link',
   },
 
+  // "Follow to get Link" gate (ManyChat-style). When enabled, `openingMessage`
+  // is repurposed as the "please follow us first" prompt (sent with a
+  // "I'm Following Now ✅" quick reply instead of the openingButtonName
+  // postback), and `finalMessage`/`finalCtaButtons`/`finalMediaType` are sent
+  // immediately once the commenter is confirmed to follow the account.
+  requireFollow: {
+    type: Boolean,
+    default: false,
+  },
+
   // Final DM once the user has clicked through
   finalMessage: {
     type: String,

@@ -74,6 +74,7 @@ const emptyForm = () => ({
   commentReply: 'Thanks! Please check your DM 😊',
   openingMessage: 'Hey 👋\nThanks for your interest.\n\nClick below to continue.',
   openingButtonName: 'Send me the link',
+  requireFollow: false,
   finalMessage: "Here's your link 👇",
   finalCtaButtons: [{ name: 'Open Website', url: '' }],
   finalMediaType: 'NONE',
@@ -172,6 +173,7 @@ export default function CommentToDM() {
       commentReply: automation.commentReply,
       openingMessage: automation.openingMessage,
       openingButtonName: automation.openingButtonName,
+      requireFollow: !!automation.requireFollow,
       finalMessage: automation.finalMessage,
       finalCtaButtons: automation.finalCtaButtons?.length ? automation.finalCtaButtons : [{ name: '', url: '' }],
       finalMediaType: automation.finalMediaType || 'NONE',
@@ -259,6 +261,7 @@ export default function CommentToDM() {
       commentReply: form.commentReply.trim(),
       openingMessage: form.openingMessage.trim(),
       openingButtonName: form.openingButtonName.trim() || 'Send me the link',
+      requireFollow: !!form.requireFollow,
       finalMessage: form.finalMessage.trim(),
       finalCtaButtons: cleanCtas,
       finalMediaType: form.finalMediaType,
@@ -657,6 +660,17 @@ function BuilderView({
               style={inputStyle}
             />
           </SectionCard>
+
+          <SectionCard
+            title="Ask users to follow before sending link (Follow Gate)"
+            subtitle="If enabled, non-followers will be prompted to follow your Instagram account first before receiving the resource link."
+            right={
+              <Toggle
+                on={form.requireFollow}
+                onClick={() => setForm((f) => ({ ...f, requireFollow: !f.requireFollow }))}
+              />
+            }
+          />
 
           <SectionCard title="They will get" subtitle="Opening DM, sent right after their comment">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
