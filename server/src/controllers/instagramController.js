@@ -67,13 +67,22 @@ async function handleCommentEvent({ igBusinessId, conn, accessToken, commentValu
         await sendAutomationFinalMessage(igBusinessId, { comment_id: commentId }, automation, accessToken);
       } else {
         console.log(`👤 ${commenterId} doesn't follow yet — sending follow-gate prompt.`);
-        await instagramService.sendQuickReplyDM(
+        // Meta's Private Reply endpoint (recipient.comment_id — required here
+        // since the commenter has never messaged the account and has no open
+        // thread yet) does not accept `quick_replies`; only text/media/button
+        // templates work through it. Use the same button-template postback
+        // mechanism as the non-gated opening-DM flow (sendCommentPrivateReply),
+        // which is already proven to work over comment_id.
+        const followGateSent = await instagramService.sendCommentPrivateReply(
           igBusinessId,
-          { comment_id: commentId },
+          commentId,
           automation.openingMessage,
-          [{ title: "I'm Following Now ✅", payload: `${FOLLOW_VERIFY_PAYLOAD_PREFIX}:${automation._id}` }],
+          [{ name: "I'm Following Now ✅", postback: `${FOLLOW_VERIFY_PAYLOAD_PREFIX}:${automation._id}` }],
           accessToken
         );
+        if (!followGateSent) {
+          console.error(`❌ Follow-gate prompt failed to send for automation ${automation._id}, comment ${commentId}.`);
+        }
       }
       return;
     }
